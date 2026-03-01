@@ -1,9 +1,18 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions, Linking, Platform, Pressable } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
 import { THEME } from '../constants/colors';
 import type { SafetyZone, ExitRoute } from '../types';
+
+/** Open the device maps app to search for nearby emergency shelters. */
+function getShelterMapsUrl(): string {
+  const query = encodeURIComponent('emergency shelter');
+  if (Platform.OS === 'ios') {
+    return `https://maps.apple.com/?q=${query}`;
+  }
+  return `https://www.google.com/maps/search/${query}`;
+}
 
 // ─── Overlay helpers ─────────────────────────────────────────────────────────
 
@@ -386,6 +395,23 @@ export function ResultPhotoView() {
       {/* Exit routes */}
       <ExitRoutesPanel routes={exitRoutes} />
 
+      {/* Find nearest shelter — when evacuating is the best option */}
+      {current?.recommend_evacuate && (
+        <View style={shelterStyles.container}>
+          <Text style={shelterStyles.title}>Better to go outside</Text>
+          <Text style={shelterStyles.subtitle}>
+            Open maps to find the nearest safe shelter and get directions.
+          </Text>
+          <Pressable
+            style={shelterStyles.button}
+            onPress={() => Linking.openURL(getShelterMapsUrl())}
+          >
+            <Text style={shelterStyles.buttonLabel}>Find nearest shelter</Text>
+            <Text style={shelterStyles.buttonHint}>Opens in Maps</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Danger summary */}
       <DangerSummary zones={zones} />
 
@@ -432,6 +458,50 @@ const heroStyles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 10,
     lineHeight: 21,
+  },
+});
+
+const shelterStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 18,
+    backgroundColor: THEME.exitBg,
+    borderWidth: 1.5,
+    borderColor: THEME.exit,
+    borderRadius: THEME.radiusCard,
+  },
+  title: {
+    color: THEME.exit,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: THEME.text,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  button: {
+    backgroundColor: THEME.exit,
+    borderRadius: THEME.radiusCard,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+  },
+  buttonLabel: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  buttonHint: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

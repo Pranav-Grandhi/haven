@@ -63,4 +63,6 @@ export interface SafetyAnalysis {
     critical_count: number;
     descriptions: string[];
   };
+  /** True when the best option is to leave the building and seek a safe shelter outside (e.g. fire, flood). */
+  recommend_evacuate?: boolean;
 }

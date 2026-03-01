@@ -138,6 +138,8 @@ interface LLMResponse {
   overall_score: number;
   primary_action: string;
   voice_summary: string;
+  /** True when the best course of action is to evacuate and go to a safe shelter outside (e.g. fire, flood). */
+  recommend_evacuate?: boolean;
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -223,7 +225,8 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
   ],
   "overall_score": <integer 0–100, higher = safer room>,
   "primary_action": "ONE clear instruction: go to [the specific safest place you named]. Example: 'Get under the sturdy desk now.' 15 words max.",
-  "voice_summary": "Start with the safest place: 'The safest place is [specific location]. [One more short instruction].' 2 short sentences."
+  "voice_summary": "Start with the safest place: 'The safest place is [specific location]. [One more short instruction].' 2 short sentences.",
+  "recommend_evacuate": <boolean: true ONLY when the best option is to leave the building and seek a safe shelter outside — e.g. fire (get out now), flood (get to higher ground outside), severe/immediate threat. false when sheltering in place is better (earthquake, tornado, blast, hazmat).>
 }`;
 
   try {
@@ -369,6 +372,7 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
           .filter((z) => z.type === 'danger')
           .map((z) => `${z.short_description}: ${z.detailed_reasoning}`),
       },
+      recommend_evacuate: parsed.recommend_evacuate === true,
     };
 
     return { ok: true, analysis, resultPhotoUri: resultFrame.uri };
