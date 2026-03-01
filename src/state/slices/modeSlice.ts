@@ -10,7 +10,7 @@ export interface ModeState {
 }
 
 export const initialModeState: ModeState = {
-  active: null,
+  active: 'earthquake',
   threat_context: {
     direction: null,
     distance: null,

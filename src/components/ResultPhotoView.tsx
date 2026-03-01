@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
+import { THEME } from '../constants/colors';
 import type { SafetyZone, ExitRoute } from '../types';
 
 // ─── Overlay helpers ─────────────────────────────────────────────────────────
@@ -147,34 +148,34 @@ const bannerStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 14,
-    backgroundColor: 'rgba(34,197,94,0.12)',
+    backgroundColor: THEME.safeBg,
     borderWidth: 1.5,
-    borderColor: '#22c55e',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: THEME.safe,
+    borderRadius: THEME.radiusCard,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 6,
+    marginBottom: 8,
+    gap: 8,
   },
   star: {
-    color: '#22c55e',
+    color: THEME.safe,
     fontSize: 18,
     fontWeight: '700',
   },
   title: {
-    color: '#22c55e',
+    color: THEME.safe,
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
   },
   pill: {
-    backgroundColor: '#22c55e',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: THEME.safe,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   pillText: {
     color: '#fff',
@@ -183,22 +184,22 @@ const bannerStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   object: {
-    color: '#fff',
+    color: THEME.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
     textTransform: 'capitalize',
   },
   reason: {
-    color: 'rgba(255,255,255,0.82)',
+    color: THEME.textMuted,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   action: {
-    color: '#22c55e',
+    color: THEME.safe,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 8,
   },
 });
 
@@ -227,27 +228,27 @@ const exitStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(59,130,246,0.1)',
+    backgroundColor: THEME.exitBg,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.45)',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: 'rgba(14,165,233,0.4)',
+    borderRadius: THEME.radiusCard,
+    padding: 16,
   },
   title: {
-    color: '#3b82f6',
+    color: THEME.exit,
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 10,
     letterSpacing: 0.3,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    gap: 10,
+    marginBottom: 10,
+    gap: 12,
   },
   number: {
-    color: '#3b82f6',
+    color: THEME.exit,
     fontSize: 14,
     fontWeight: '800',
     width: 20,
@@ -255,18 +256,18 @@ const exitStyles = StyleSheet.create({
   },
   info: { flex: 1 },
   label: {
-    color: '#fff',
+    color: THEME.text,
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   note: {
-    color: 'rgba(255,255,255,0.72)',
+    color: THEME.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
   blocked: {
-    color: '#ef4444',
+    color: THEME.danger,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
@@ -280,7 +281,7 @@ function DangerSummary({ zones }: { zones: SafetyZone[] }) {
   if (!dangers.length) return null;
   return (
     <View style={dangerStyles.container}>
-      <Text style={dangerStyles.title}>✕ Avoid These Areas</Text>
+      <Text style={dangerStyles.title}>Avoid these areas</Text>
       {dangers.map((z) => (
         <Text key={z.id} style={dangerStyles.item} numberOfLines={2}>
           • {z.short_description} — {z.detailed_reasoning?.slice(0, 80)}
@@ -294,23 +295,23 @@ const dangerStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: THEME.dangerBg,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.35)',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: 'rgba(244,63,94,0.35)',
+    borderRadius: THEME.radiusCard,
+    padding: 16,
   },
   title: {
-    color: '#ef4444',
+    color: THEME.danger,
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   item: {
-    color: 'rgba(255,255,255,0.8)',
+    color: THEME.text,
     fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 4,
+    lineHeight: 19,
+    marginBottom: 6,
   },
 });
 
@@ -348,15 +349,20 @@ export function ResultPhotoView() {
       : 'Move to an interior area away from windows.');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Prominent "safest" answer at top — visible without scrolling */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={true}
+      bounces={true}
+    >
+      {/* Prominent "safest" answer at top */}
       <View style={heroStyles.hero}>
         <Text style={heroStyles.heroLabel}>Safest place to hide</Text>
-        <Text style={heroStyles.heroAnswer} numberOfLines={3}>
+        <Text style={heroStyles.heroAnswer}>
           {safestOneLiner}
         </Text>
         {room_summary?.safest && room_summary.safest !== safestOneLiner && (
-          <Text style={heroStyles.heroAction} numberOfLines={2}>
+          <Text style={heroStyles.heroAction}>
             {room_summary.safest}
           </Text>
         )}
@@ -398,66 +404,70 @@ export function ResultPhotoView() {
 const heroStyles = StyleSheet.create({
   hero: {
     marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    backgroundColor: 'rgba(34,197,94,0.18)',
-    borderWidth: 2,
-    borderColor: '#22c55e',
-    borderRadius: 12,
-    padding: 16,
+    marginTop: 14,
+    marginBottom: 6,
+    backgroundColor: THEME.safeBg,
+    borderWidth: 1.5,
+    borderColor: THEME.safe,
+    borderRadius: THEME.radiusCard,
+    padding: 18,
   },
   heroLabel: {
-    color: '#22c55e',
-    fontSize: 12,
+    color: THEME.safe,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    marginBottom: 8,
     textTransform: 'uppercase',
   },
   heroAnswer: {
-    color: '#fff',
+    color: THEME.text,
     fontSize: 18,
     fontWeight: '700',
-    lineHeight: 24,
+    lineHeight: 25,
   },
   heroAction: {
-    color: 'rgba(255,255,255,0.9)',
+    color: THEME.textMuted,
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 10,
+    lineHeight: 21,
   },
 });
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    minHeight: 0,
+    backgroundColor: THEME.background,
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: 36,
   },
   title: {
-    color: '#fff',
-    fontSize: 18,
+    color: THEME.text,
+    fontSize: 17,
     fontWeight: '700',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 18,
+    paddingBottom: 14,
+    letterSpacing: 0.2,
   },
   photoWrap: {
     alignSelf: 'center',
-    borderRadius: 12,
+    borderRadius: THEME.radiusCard,
     overflow: 'hidden',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: THEME.surface,
+    borderWidth: 1,
+    borderColor: THEME.surfaceBorder,
   },
   photo: {
-    borderRadius: 12,
+    borderRadius: THEME.radiusCard,
   },
   summaryWrap: {
-    marginTop: 12,
+    marginTop: 14,
   },
   bottomPad: {
-    height: 16,
+    height: 20,
   },
 });

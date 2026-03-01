@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useStore } from '../state/store';
 import { DISASTER_MODES, MODE_DANGERS, MODE_SAFE_COVER } from '../constants/disasterModes';
+import { THEME } from '../constants/colors';
 import type { DisasterMode } from '../types';
 
 /**
@@ -26,14 +27,14 @@ export function ModeGuide() {
         accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} guide for ${modeLabel}`}
       >
         <Text style={styles.headerTitle}>
-          What to expect in {modeLabel}
+          What to expect — {modeLabel}
         </Text>
         <Text style={styles.chevron}>{expanded ? '▼' : '▶'}</Text>
       </Pressable>
       {expanded && (
         <View style={styles.body}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔴 May fall / avoid</Text>
+            <Text style={[styles.sectionTitle, styles.dangerTitle]}>Avoid</Text>
             {dangers.map((line, i) => (
               <Text key={i} style={styles.bullet}>
                 • {line}
@@ -41,7 +42,7 @@ export function ModeGuide() {
             ))}
           </View>
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, styles.safeTitle]}>🟢 Safe cover / where to go</Text>
+            <Text style={[styles.sectionTitle, styles.safeTitle]}>Safe cover</Text>
             {safeCover.map((line, i) => (
               <Text key={i} style={styles.bullet}>
                 • {line}
@@ -58,50 +59,53 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
+    backgroundColor: THEME.surface,
+    borderRadius: THEME.radiusCard,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: THEME.surfaceBorder,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   headerTitle: {
-    color: 'rgba(255,255,255,0.95)',
-    fontSize: 14,
+    color: THEME.text,
+    fontSize: 15,
     fontWeight: '600',
   },
   chevron: {
-    color: 'rgba(255,255,255,0.6)',
+    color: THEME.textMuted,
     fontSize: 12,
   },
   body: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 16,
   },
   section: {
-    gap: 4,
+    gap: 6,
   },
   sectionTitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '700',
+    color: THEME.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
     marginBottom: 4,
-    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  dangerTitle: {
+    color: THEME.danger,
   },
   safeTitle: {
-    color: 'rgba(34, 197, 94, 0.95)',
+    color: THEME.safe,
   },
   bullet: {
-    color: 'rgba(255,255,255,0.85)',
+    color: THEME.text,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 21,
     marginLeft: 4,
   },
 });

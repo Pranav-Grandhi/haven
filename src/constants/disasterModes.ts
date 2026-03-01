@@ -4,7 +4,7 @@ export const DISASTER_MODES: Record<
   DisasterMode,
   { label: string; shortLabel: string; icon: string }
 > = {
-  earthquake: { label: 'Earthquake', shortLabel: 'Quake', icon: 'earthquake' },
+  earthquake: { label: 'Earthquake', shortLabel: 'Earthquake', icon: 'earthquake' },
   flood: { label: 'Flood', shortLabel: 'Flood', icon: 'flood' },
   tornado: { label: 'Tornado', shortLabel: 'Tornado', icon: 'tornado' },
   blast: { label: 'Blast / Explosion', shortLabel: 'Blast', icon: 'blast' },
@@ -79,4 +79,15 @@ export const MODE_SAFE_COVER: Record<DisasterMode, string[]> = {
   ],
 };
 
-export const MVP_MODES: DisasterMode[] = ['earthquake', 'flood', 'tornado'];
+/** All supported disaster types for room scan and analysis. */
+export const ALL_MODES: DisasterMode[] = [
+  'earthquake',
+  'flood',
+  'tornado',
+  'blast',
+  'fire',
+  'hazmat',
+];
+
+/** @deprecated Use ALL_MODES for full list. */
+export const MVP_MODES: DisasterMode[] = ALL_MODES;

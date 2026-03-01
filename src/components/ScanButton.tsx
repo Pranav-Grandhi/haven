@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useStore } from '../state/store';
+import { THEME } from '../constants/colors';
 
 type ScanButtonProps = {
   onScan: () => void | Promise<void>;
@@ -37,22 +38,28 @@ export function ScanButton({ onScan, disabled = false }: ScanButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+    backgroundColor: THEME.safe,
     paddingVertical: 14,
     paddingHorizontal: 28,
-    borderRadius: 12,
-    minWidth: 100,
+    borderRadius: THEME.radiusCard,
+    minWidth: 110,
     alignItems: 'center',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    backgroundColor: THEME.danger,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   label: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

@@ -16,6 +16,7 @@ import { analyzeRoomWithLLM } from '@/src/services/llmAnalysis';
 import { computeRoomSummary } from '@/src/utils/roomSummary';
 import type { DisasterMode } from '@/src/types';
 import type { ScanFrame } from '@/src/hooks/use360Scan';
+import { THEME } from '@/src/constants/colors';
 
 /** Capture a frame every N milliseconds while scanning. */
 const CAPTURE_INTERVAL_MS = 800;
@@ -164,12 +165,12 @@ export default function ShelterScanScreen() {
     <View style={styles.container}>
       <HUD />
       {showResult ? (
-        <>
+        <View style={styles.resultWrap}>
           <ResultPhotoView />
-          <View style={styles.controls}>
+          <View style={styles.controlsResult}>
             <ControlBar onScan={handleNewScan} onSummarizeRoom={handleSummarizeRoom} scanPhase="result" />
           </View>
-        </>
+        </View>
       ) : (
         <>
           {scanError ? (
@@ -220,85 +221,101 @@ export default function ShelterScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: THEME.background,
   },
-  feed: {
-    width: '100%',
-    overflow: 'hidden',
+  resultWrap: {
+    flex: 1,
+    minHeight: 0,
   },
   controls: {
     flex: 1,
     justifyContent: 'flex-end',
   },
+  controlsResult: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: THEME.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME.surfaceBorder,
+  },
+  feed: {
+    width: '100%',
+    overflow: 'hidden',
+  },
 
-  // ── Capture overlay ────────────────────────────────────────────────────────
   phaseOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   scanTitle: {
-    color: '#fff',
-    fontSize: 20,
+    color: THEME.text,
+    fontSize: 22,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   scanHint: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 14,
+    color: THEME.textMuted,
+    fontSize: 15,
   },
   frameCount: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
   },
   doneButton: {
-    marginTop: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    borderRadius: 16,
-    backgroundColor: '#22c55e',
+    marginTop: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 52,
+    borderRadius: THEME.radiusCard,
+    backgroundColor: THEME.safe,
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   doneLabel: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
 
-  // ── Processing overlay ─────────────────────────────────────────────────────
   processingTitle: {
-    color: '#fff',
-    fontSize: 18,
+    color: THEME.text,
+    fontSize: 20,
     fontWeight: '700',
   },
   processingSubtitle: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    color: THEME.textMuted,
+    fontSize: 14,
     marginTop: 6,
     textAlign: 'center',
     paddingHorizontal: 32,
   },
 
-  // ── Error banner (when analysis fails) ─────────────────────────────────────
   errorBanner: {
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
-    backgroundColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: THEME.dangerBg,
     borderWidth: 1.5,
-    borderColor: '#ef4444',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: THEME.danger,
+    borderRadius: THEME.radiusCard,
+    padding: 16,
   },
   errorTitle: {
-    color: '#ef4444',
+    color: THEME.danger,
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 4,
   },
   errorText: {
-    color: 'rgba(255,255,255,0.95)',
+    color: THEME.text,
     fontSize: 13,
     lineHeight: 20,
   },

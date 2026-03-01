@@ -1,6 +1,23 @@
 /**
  * ShelterScan overlay and zone colors (from spec).
+ * Theme: deep background, soft surfaces, clear safe/danger/exit accents.
  */
+
+export const THEME = {
+  background: '#0a0a12',
+  surface: 'rgba(255,255,255,0.06)',
+  surfaceBorder: 'rgba(255,255,255,0.09)',
+  text: '#f4f4f5',
+  textMuted: 'rgba(255,255,255,0.65)',
+  safe: '#10b981',
+  safeBg: 'rgba(16,185,129,0.15)',
+  danger: '#f43f5e',
+  dangerBg: 'rgba(244,63,94,0.12)',
+  exit: '#0ea5e9',
+  exitBg: 'rgba(14,165,233,0.12)',
+  radiusCard: 16,
+  radiusPill: 12,
+} as const;
 
 export const ZONE_COLORS = {
   safe: {

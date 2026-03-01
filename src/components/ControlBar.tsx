@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { ModeSelector } from './ModeSelector';
 import { ScanButton } from './ScanButton';
 import { useStore } from '../state/store';
+import { THEME } from '../constants/colors';
 import type { ScanPhase } from '../state/slices/analysisSlice';
 
 type ControlBarProps = {
@@ -47,40 +48,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: THEME.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME.surfaceBorder,
     gap: 12,
   },
   newScanButton: {
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.5)',
-    borderWidth: 2,
-    borderColor: 'rgba(59, 130, 246, 0.8)',
+    paddingHorizontal: 22,
+    borderRadius: THEME.radiusCard,
+    backgroundColor: THEME.exitBg,
+    borderWidth: 1.5,
+    borderColor: THEME.exit,
   },
   newScanLabel: {
-    color: '#fff',
+    color: THEME.exit,
     fontSize: 14,
     fontWeight: '700',
   },
   summaryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.35)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: THEME.radiusPill,
+    backgroundColor: THEME.safeBg,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: 'rgba(16,185,129,0.4)',
   },
   summaryButtonDisabled: {
     opacity: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: THEME.surface,
+    borderColor: THEME.surfaceBorder,
   },
   summaryLabel: {
-    color: '#fff',
-    fontSize: 12,
+    color: THEME.safe,
+    fontSize: 13,
     fontWeight: '700',
   },
 });
