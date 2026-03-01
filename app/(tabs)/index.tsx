@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions, Platform, ScrollView } from 'react-native';
 import { HUD } from '@/src/components/HUD';
 import { OverlayCanvas } from '@/src/components/OverlayCanvas';
 import { IdentifiedList } from '@/src/components/IdentifiedList';
@@ -17,9 +17,14 @@ import { computeRoomSummary } from '@/src/utils/roomSummary';
 import type { DisasterMode } from '@/src/types';
 import type { ScanFrame } from '@/src/hooks/use360Scan';
 import { THEME } from '@/src/constants/colors';
+import { DISASTER_MODES, ALL_MODES } from '@/src/constants/disasterModes';
 
-/** Capture a frame every N milliseconds while scanning. */
-const CAPTURE_INTERVAL_MS = 800;
+/** Gyro: capture a new frame only after this many degrees of rotation (avoids overlapping frames). */
+const CAPTURE_EVERY_DEG = 15;
+/** Fallback when gyro unavailable: interval in ms between frames. */
+const FALLBACK_INTERVAL_MS = 800;
+const GYRO_POLL_MS = 50;
+const NOISE_FLOOR_RADS = 0.05;
 
 export default function ShelterScanScreen() {
   const { width, height } = useWindowDimensions();
@@ -29,6 +34,7 @@ export default function ShelterScanScreen() {
 
   const clearAnalysis = useStore((s) => s.clearAnalysis);
   const active = useStore((s) => s.active);
+  const setMode = useStore((s) => s.setMode);
   const scan_phase = useStore((s) => s.scan_phase);
   const setScanPhase = useStore((s) => s.setScanPhase);
   const setResultFromBurst = useStore((s) => s.setResultFromBurst);
@@ -37,17 +43,33 @@ export default function ShelterScanScreen() {
   const history = useStore((s) => s.history);
   const { identifiedSummary } = useZoneTracking();
 
+  /** Flow: select disaster → camera scan → result. */
+  const [flowScreen, setFlowScreen] = useState<'select' | 'camera' | 'result'>('select');
   const [frameCount, setFrameCount] = useState(0);
   /** Shown on screen when analysis fails so user sees why there's no result. */
   const [scanError, setScanError] = useState<string | null>(null);
 
   /** Accumulated frames during the free-form scan. */
   const framesRef = useRef<ScanFrame[]>([]);
-  /** setInterval handle — kept in a ref so handleDone can clear it. */
+  /** setInterval handle (fallback when gyro unavailable). */
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Gyroscope subscription — capture only when device has rotated CAPTURE_EVERY_DEG. */
+  const gyroSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const scanInProgress = useRef(false);
 
-  // ── Start free-form scan ──────────────────────────────────────────────────
+  const captureFrame = useCallback(async (frameIndex: number): Promise<ScanFrame | null> => {
+    const photo = await cameraRef.current?.takePictureAsync({ quality: 0.8, base64: true });
+    if (!photo) return null;
+    return {
+      uri: photo.uri,
+      frame_id: `frame_${frameIndex}`,
+      width: photo.width,
+      height: photo.height,
+      base64: photo.base64 ?? undefined,
+    };
+  }, []);
+
+  // ── Start free-form scan (gyro-driven when available, else interval) ────────
   const handleScanRoom = useCallback(async () => {
     if (!active || scanInProgress.current) return;
     scanInProgress.current = true;
@@ -57,20 +79,70 @@ export default function ShelterScanScreen() {
     setScanPhase('capturing');
 
     let frameIndex = 0;
-    intervalRef.current = setInterval(async () => {
-      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.8, base64: true });
-      if (!photo) return;
-      const frame: ScanFrame = {
-        uri: photo.uri,
-        frame_id: `frame_${frameIndex++}`,
-        width: photo.width,
-        height: photo.height,
-        base64: photo.base64 ?? undefined,
-      };
+    let capturing = false;
+
+    const addFrame = (frame: ScanFrame) => {
       framesRef.current = [...framesRef.current, frame];
       setFrameCount(framesRef.current.length);
-    }, CAPTURE_INTERVAL_MS);
-  }, [active, clearAnalysis, setScanPhase]);
+    };
+
+    const tryGyro = () => {
+      try {
+        const { Gyroscope } = require('expo-sensors');
+        if (!Gyroscope) return false;
+
+        let cumDeg = 0;
+        let lastCaptureDeg = 0;
+        let lastTime = 0;
+
+        Gyroscope.setUpdateInterval(GYRO_POLL_MS);
+
+        const sub = Gyroscope.addListener(async ({ x, y, z }: { x: number; y: number; z: number }) => {
+          const now = Date.now();
+          if (lastTime === 0) {
+            lastTime = now;
+            lastCaptureDeg = 0;
+            capturing = true;
+            const f = await captureFrame(frameIndex++);
+            if (f) addFrame(f);
+            capturing = false;
+            return;
+          }
+
+          const dt = Math.min((now - lastTime) / 1000, 0.15);
+          lastTime = now;
+          const rate = Math.max(Math.abs(z), Math.abs(y) * 0.6, Math.abs(x) * 0.3);
+
+          if (rate > NOISE_FLOOR_RADS) {
+            cumDeg += rate * (180 / Math.PI) * dt;
+          }
+
+          if (!capturing && cumDeg - lastCaptureDeg >= CAPTURE_EVERY_DEG) {
+            lastCaptureDeg = cumDeg;
+            capturing = true;
+            const f = await captureFrame(frameIndex++);
+            if (f) addFrame(f);
+            capturing = false;
+          }
+        });
+
+        gyroSubscriptionRef.current = sub;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (Platform.OS !== 'web' && tryGyro()) {
+      return;
+    }
+
+    gyroSubscriptionRef.current = null;
+    intervalRef.current = setInterval(async () => {
+      const f = await captureFrame(frameIndex++);
+      if (f) addFrame(f);
+    }, FALLBACK_INTERVAL_MS);
+  }, [active, clearAnalysis, setScanPhase, captureFrame]);
 
   // ── User taps "Done" ──────────────────────────────────────────────────────
   const handleDoneScanning = useCallback(async () => {
@@ -78,6 +150,10 @@ export default function ShelterScanScreen() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (gyroSubscriptionRef.current) {
+      gyroSubscriptionRef.current.remove();
+      gyroSubscriptionRef.current = null;
     }
 
     const frames = framesRef.current;
@@ -127,6 +203,7 @@ export default function ShelterScanScreen() {
       setResultFromBurst(analysis, [], summary, resultPhotoUri);
       speak(analysis.voice_response);
       scanInProgress.current = false;
+      setFlowScreen('result');
     } catch (e) {
       const msg = 'Analysis error. Check your connection and try again.';
       setScanError(msg);
@@ -136,18 +213,41 @@ export default function ShelterScanScreen() {
     }
   }, [active, setScanPhase, setResultFromBurst, speak]);
 
-  // ── New scan (reset) ──────────────────────────────────────────────────────
+  // ── New scan (reset) → go back to disaster select ─────────────────────────
   const handleNewScan = useCallback(() => {
     setScanError(null);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (gyroSubscriptionRef.current) {
+      gyroSubscriptionRef.current.remove();
+      gyroSubscriptionRef.current = null;
+    }
     framesRef.current = [];
     clearAnalysis();
     setFrameCount(0);
     scanInProgress.current = false;
+    setFlowScreen('select');
   }, [clearAnalysis]);
+
+  // ── Back from camera → disaster select ────────────────────────────────────
+  const handleBackFromCamera = useCallback(() => {
+    setScanError(null);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (gyroSubscriptionRef.current) {
+      gyroSubscriptionRef.current.remove();
+      gyroSubscriptionRef.current = null;
+    }
+    framesRef.current = [];
+    setFrameCount(0);
+    scanInProgress.current = false;
+    setScanPhase('idle');
+    setFlowScreen('select');
+  }, [setScanPhase]);
 
   const handleSummarizeRoom = useCallback(() => {
     const summary = computeRoomSummary(current, history);
@@ -159,60 +259,100 @@ export default function ShelterScanScreen() {
     }
   }, [current, history, setRoomSummary, speak]);
 
-  const showResult = scan_phase === 'result';
+  // ─── Screen 1: Disaster selection (first thing user sees) ───────────────────
+  if (flowScreen === 'select') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.selectWrap}>
+          <Text style={styles.selectTitle}>What type of disaster?</Text>
+          <Text style={styles.selectSubtitle}>Choose one to scan your room for safe spots</Text>
+          <ScrollView style={styles.selectScroll} contentContainerStyle={styles.selectScrollContent} showsVerticalScrollIndicator={false}>
+            {ALL_MODES.map((mode) => {
+              const config = DISASTER_MODES[mode];
+              return (
+                <Pressable
+                  key={mode}
+                  style={styles.selectOption}
+                  onPress={() => {
+                    setMode(mode);
+                    setScanPhase('idle');
+                    setFlowScreen('camera');
+                  }}
+                >
+                  <Text style={styles.selectOptionLabel}>{config.label}</Text>
+                  <Text style={styles.selectOptionArrow}>→</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
 
+  // ─── Screen 2: Camera only + Back ──────────────────────────────────────────
+  if (flowScreen === 'camera') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.cameraTopBar}>
+          <Pressable style={styles.backButton} onPress={handleBackFromCamera}>
+            <Text style={styles.backButtonLabel}>← Back</Text>
+          </Pressable>
+          <Text style={styles.cameraModeLabel}>{active ? DISASTER_MODES[active].label : ''}</Text>
+          <View style={styles.backButton} />
+        </View>
+        {scanError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorTitle}>No result</Text>
+            <Text style={styles.errorText}>{scanError}</Text>
+          </View>
+        ) : null}
+        <View style={[styles.feed, { height: feedHeight }]}>
+          <CameraPlaceholder ref={cameraRef} />
+          <OverlayCanvas layoutWidth={width} layoutHeight={feedHeight} />
+
+          {scan_phase === 'capturing' && (
+            <View style={styles.phaseOverlay}>
+              <Text style={styles.scanTitle}>Scanning room…</Text>
+              <Text style={styles.scanHint}>Pan around — a photo is taken every ~15° (no duplicates)</Text>
+              <Text style={styles.frameCount}>{frameCount} frames captured</Text>
+              <Pressable style={styles.doneButton} onPress={handleDoneScanning}>
+                <Text style={styles.doneLabel}>I'm done ✓</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {scan_phase === 'processing' && (
+            <View style={styles.phaseOverlay}>
+              <Text style={styles.processingTitle}>Analyzing room…</Text>
+              <Text style={styles.processingSubtitle}>
+                Finding safe spots, hazards, and exit routes
+              </Text>
+            </View>
+          )}
+        </View>
+        {scan_phase === 'idle' && (
+          <View style={styles.cameraBottomBar}>
+            <Pressable style={styles.scanRoomButton} onPress={handleScanRoom}>
+              <Text style={styles.doneLabel}>Scan room</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // ─── Screen 3: Result (suggestions, safest place, etc.) ────────────────────
   return (
     <View style={styles.container}>
-      <HUD />
-      {showResult ? (
-        <View style={styles.resultWrap}>
-          <ResultPhotoView />
-          <View style={styles.controlsResult}>
-            <ControlBar onScan={handleNewScan} onSummarizeRoom={handleSummarizeRoom} scanPhase="result" />
-          </View>
+      <View style={styles.resultWrap}>
+        <ResultPhotoView />
+        <View style={styles.controlsResult}>
+          <Pressable style={styles.newScanButton} onPress={handleNewScan}>
+            <Text style={styles.newScanLabel}>New scan</Text>
+          </Pressable>
         </View>
-      ) : (
-        <>
-          {scanError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorTitle}>No result</Text>
-              <Text style={styles.errorText}>{scanError}</Text>
-            </View>
-          ) : null}
-          <View style={[styles.feed, { height: feedHeight }]}>
-            <CameraPlaceholder ref={cameraRef} />
-            <OverlayCanvas layoutWidth={width} layoutHeight={feedHeight} />
-
-            {scan_phase === 'capturing' && (
-              <View style={styles.phaseOverlay}>
-                <Text style={styles.scanTitle}>Scanning room…</Text>
-                <Text style={styles.scanHint}>Pan slowly around the room</Text>
-                <Text style={styles.frameCount}>{frameCount} frames captured</Text>
-
-                <Pressable style={styles.doneButton} onPress={handleDoneScanning}>
-                  <Text style={styles.doneLabel}>Done ✓</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {scan_phase === 'processing' && (
-              <View style={styles.phaseOverlay}>
-                <Text style={styles.processingTitle}>Analyzing room…</Text>
-                <Text style={styles.processingSubtitle}>
-                  Finding safe spots, hazards, and exit routes
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <IdentifiedList safe={identifiedSummary.safe} danger={identifiedSummary.danger} />
-          <RoomSummaryCard />
-          <ModeGuide />
-          <View style={styles.controls}>
-            <ControlBar onScan={handleScanRoom} onSummarizeRoom={handleSummarizeRoom} scanPhase={scan_phase} />
-          </View>
-        </>
-      )}
+      </View>
       <DetailCard />
     </View>
   );
@@ -223,6 +363,106 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.background,
   },
+
+  // ─── Disaster select screen ───────────────────────────────────────────────
+  selectWrap: {
+    flex: 1,
+    paddingTop: 48,
+    paddingHorizontal: 24,
+  },
+  selectTitle: {
+    color: THEME.text,
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  selectSubtitle: {
+    color: THEME.textMuted,
+    fontSize: 16,
+    marginBottom: 32,
+  },
+  selectScroll: { flex: 1 },
+  selectScrollContent: { paddingBottom: 32 },
+  selectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: THEME.surface,
+    borderWidth: 1,
+    borderColor: THEME.surfaceBorder,
+    borderRadius: THEME.radiusCard,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  selectOptionLabel: {
+    color: THEME.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  selectOptionArrow: {
+    color: THEME.textMuted,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+
+  // ─── Camera screen top bar ──────────────────────────────────────────────
+  cameraTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.surfaceBorder,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 80,
+  },
+  backButtonLabel: {
+    color: THEME.exit,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cameraModeLabel: {
+    color: THEME.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cameraBottomBar: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    backgroundColor: THEME.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME.surfaceBorder,
+    alignItems: 'center',
+  },
+  scanRoomButton: {
+    backgroundColor: THEME.safe,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: THEME.radiusCard,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  newScanButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: THEME.radiusCard,
+    backgroundColor: THEME.exitBg,
+    borderWidth: 1.5,
+    borderColor: THEME.exit,
+    alignSelf: 'center',
+  },
+  newScanLabel: {
+    color: THEME.exit,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
   resultWrap: {
     flex: 1,
     minHeight: 0,
@@ -237,6 +477,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.surface,
     borderTopWidth: 1,
     borderTopColor: THEME.surfaceBorder,
+    alignItems: 'center',
   },
   feed: {
     width: '100%',
