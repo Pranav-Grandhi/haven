@@ -31,6 +31,19 @@ npx expo start
 - **iOS Simulator:** In the terminal, press `i` after `expo start` to open in the iOS simulator (Expo Go in simulator).
 - **Web:** Press `w` or run `npx expo start --web` and open the URL in the browser.
 
+## Room scan (safest area to hide)
+
+When you tap **Done** after scanning the room, the app sends the captured frames to **OpenAI (GPT-4o)** to identify safe spots, hazards, and the best place to take cover. You need an API key:
+
+1. Open the **`.env`** file in the project root and set:
+   ```bash
+   EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-...your-key-here...
+   ```
+2. Get a key at [platform.openai.com](https://platform.openai.com/api-keys) (sign up, then Create new secret key).
+3. **Restart the dev server** after changing `.env` — run `npx expo start` (or `npx expo start -c` to clear cache), then reload the app in Expo Go.
+
+Without a valid key, the app will show an error and won’t show the result.
+
 ## Notes
 
 - **Camera:** In Expo Go, allow camera when prompted. Scanning uses the camera; on device, analysis uses mock detection (Core ML requires a custom dev build).

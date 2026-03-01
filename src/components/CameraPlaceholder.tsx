@@ -7,7 +7,12 @@ import { useStore } from '../state/store';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export type CameraCaptureRef = {
-  takePictureAsync: () => Promise<{ uri: string; width: number; height: number } | null>;
+  takePictureAsync: (options?: { quality?: number; base64?: boolean }) => Promise<{
+    uri: string;
+    width: number;
+    height: number;
+    base64?: string;
+  } | null>;
 };
 
 export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPlaceholder(_, ref) {
@@ -26,13 +31,23 @@ export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPla
   }, [permission?.status]);
 
   useImperativeHandle(ref, () => ({
-    takePictureAsync: async () => {
+    takePictureAsync: async (options?: { quality?: number; base64?: boolean }) => {
       if (!permission?.granted || !cameraRef.current) return null;
       try {
         const takePicture = (cameraRef.current as any).takePictureAsync ?? (cameraRef.current as any).takePicture;
         if (typeof takePicture !== 'function') return null;
-        const photo = await takePicture.call(cameraRef.current, { quality: 0.8 });
-        return photo ? { uri: photo.uri, width: photo.width, height: photo.height } : null;
+        const photo = await takePicture.call(cameraRef.current, {
+          quality: options?.quality ?? 0.8,
+          base64: options?.base64 ?? true,
+        });
+        return photo
+          ? {
+              uri: photo.uri,
+              width: photo.width,
+              height: photo.height,
+              base64: photo.base64 ?? undefined,
+            }
+          : null;
       } catch {
         return null;
       }

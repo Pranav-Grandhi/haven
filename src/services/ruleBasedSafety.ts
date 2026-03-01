@@ -1,38 +1,177 @@
 /**
  * Rule-based safety analysis from detections (no GPT).
- * Uses disaster-mode logic from the spec to mark safe/danger zones.
+ * Uses disaster-mode logic to mark safe / danger / exit zones.
+ * Exit-type zones are pushed into the zones array so they appear
+ * as blue "→ EXIT" overlays on the result photo.
  */
 
 import type {
   DisasterMode,
   SafetyAnalysis,
   SafetyZone,
+  ZoneType,
   ExitRoute,
   SafetyAction,
   DetectionResult,
 } from '../types';
 
+// Danger keywords per mode (more specific first)
 const DANGER_LABELS: Record<DisasterMode, string[]> = {
-  earthquake: ['window', 'glass', 'mirror', 'hanging', 'shelf', 'bookcase', 'exterior'],
-  flood: ['basement', 'floor', 'electrical', 'outlet', 'ground'],
+  earthquake: ['hanging', 'bookcase', 'shelf', 'mirror', 'glass', 'window', 'exterior', 'refrigerator', 'electrical panel'],
+  flood: ['electrical', 'outlet', 'panel', 'basement', 'floor', 'ground'],
   tornado: ['window', 'exterior', 'garage', 'top floor', 'open room'],
-  blast: ['window', 'glass', 'exterior', 'mirror'],
-  fire: ['single exit', 'blocked', 'interior room'],
-  hazmat: ['vent', 'hvac', 'window', 'intake'],
+  blast: ['mirror', 'glass', 'window', 'exterior'],
+  fire: ['blocked', 'single exit', 'interior room'],
+  hazmat: ['vent', 'hvac', 'intake', 'window', 'outlet'],
 };
 
+// Safe / hide-under keywords per mode (more specific first)
 const SAFE_LABELS: Record<DisasterMode, string[]> = {
-  earthquake: ['wall', 'interior', 'door frame', 'doorframe', 'sturdy', 'desk', 'table', 'chair'],
-  flood: ['upper', 'floor', 'roof', 'stair', 'high'],
-  tornado: ['basement', 'bathroom', 'closet', 'interior', 'hallway'],
-  blast: ['interior', 'wall', 'column', 'behind', 'desk', 'table'],
-  fire: ['exit', 'door', 'egress', 'stair'],
-  hazmat: ['interior', 'bathroom', 'seal', 'room'],
+  earthquake: ['door frame', 'doorframe', 'sturdy', 'desk', 'table', 'chair', 'couch', 'sofa', 'bathtub', 'bed', 'wall', 'interior'],
+  flood: ['stair', 'staircase', 'stairs', 'roof', 'upper', 'high'],
+  tornado: ['basement', 'bathroom', 'bathtub', 'closet', 'hallway', 'interior'],
+  blast: ['column', 'behind', 'desk', 'table', 'couch', 'sofa', 'bed', 'interior', 'wall'],
+  fire: ['egress', 'exit sign', 'stair', 'staircase', 'door'],
+  hazmat: ['seal', 'bathroom', 'interior', 'room', 'closet'],
+};
+
+// Exit-route labels (objects that ARE or indicate an exit)
+const EXIT_LABELS = ['door', 'exit', 'stair', 'staircase', 'stairs', 'exit sign', 'escalator'];
+
+// Why each hazard is dangerous
+const DANGER_REASONS: Record<DisasterMode, Record<string, string>> = {
+  earthquake: {
+    window: 'Windows can shatter during shaking. Broken glass causes serious injury. Stay at least 3 feet away.',
+    glass: 'Glass may break and fly during an earthquake. Avoid glass doors, panels, and skylights.',
+    mirror: 'Mirrors can shatter and create sharp debris. Move away from mirrors and glass surfaces.',
+    hanging: 'Hanging lights, plants, or art can fall and hit you. Do not stand under anything that could drop.',
+    shelf: 'Unsecured shelves can tip over. Items may fall and cause injury. Keep clear of heavy shelving.',
+    bookcase: 'Bookcases and tall furniture can topple in a quake. Stay away from unanchored heavy furniture.',
+    exterior: 'Exterior walls and facades can collapse or shed debris. Prefer interior structural zones.',
+    refrigerator: 'Heavy appliances can tip and slide. Stay clear of the refrigerator and other tall appliances.',
+    'electrical panel': 'Electrical panels can spark if damaged. Do not touch; move away.',
+  },
+  flood: {
+    electrical: 'Water and electricity are deadly. Avoid outlets, panels, and any wiring when flooding is possible.',
+    outlet: 'Electrical outlets can electrocute when wet. Do not touch; stay away from flooded areas.',
+    panel: 'Electrical panel near water is a serious hazard. Do not touch; evacuate area.',
+    basement: 'Basements fill first and can trap you. Move to an upper floor or higher ground immediately.',
+    floor: 'Low-lying areas flood first. Seek higher ground or an upper story.',
+    ground: 'Ground level is most at risk. Move up if you can do so safely.',
+  },
+  tornado: {
+    window: 'Windows can implode from pressure or flying debris. Stay away; go to an interior room.',
+    exterior: 'Exterior rooms and walls are vulnerable to wind and debris. Move to an interior hallway or bathroom.',
+    garage: 'Garages often have weak doors and can collapse. Do not shelter in a garage.',
+    'top floor': 'Upper floors are more exposed to wind and collapse. Go to the lowest interior level.',
+    'open room': 'Open rooms offer no protection from debris. Find a small interior room or closet.',
+  },
+  blast: {
+    window: 'Glass can become projectiles in a blast. Stay away from all windows.',
+    glass: 'Glass may shatter and fly at high speed. Avoid glass doors, storefronts, and windows.',
+    mirror: 'Mirrors and glass can fragment and cause injury. Move to an interior area.',
+    exterior: 'Exterior walls and windows are most exposed. Get to an interior room or behind solid cover.',
+  },
+  fire: {
+    blocked: 'Blocked exits trap you. Keep exits clear and choose a path with more than one way out.',
+    'single exit': 'A room with only one exit is dangerous. If that exit is blocked, you cannot escape.',
+    'interior room': 'Interior rooms with no windows can trap you in a fire. Prefer rooms near an exit or with a window.',
+  },
+  hazmat: {
+    vent: 'Vents can draw in contaminated air. Seal vents or stay away from HVAC intakes.',
+    hvac: 'HVAC systems can spread contaminants. Turn off if safe; avoid intake areas.',
+    intake: 'Air intakes can pull in hazardous material. Avoid intake vents and unfiltered outside air.',
+    window: 'Windows may not seal tightly. Prefer interior rooms with fewer openings to the outside.',
+    outlet: 'Electrical outlets can be an ingress point for contaminated air. Seal if advised.',
+  },
+};
+
+// Why each area is safer
+const SAFE_REASONS: Record<DisasterMode, Record<string, string>> = {
+  earthquake: {
+    desk: 'A sturdy desk provides cover from falling objects. Get under it, hold on, and protect your head and neck.',
+    table: 'A solid table can shield you. Get under it and hold a leg if it moves.',
+    chair: 'A heavy chair near a sturdy desk can be part of a protective posture. Prefer getting under a desk or table.',
+    couch: 'A low, heavy couch can provide cover. Get next to it or behind it and hold on during shaking.',
+    sofa: 'A heavy sofa can absorb impacts. Crouch beside or behind it away from windows.',
+    bathtub: 'A cast-iron or steel bathtub can shield you from falling debris. Get inside and cover your head.',
+    bed: 'A sturdy bed frame can provide some protection. Get under it if no desk or table is nearby.',
+    wall: 'Interior load-bearing walls are often more stable. Stay along an interior wall, away from windows.',
+    interior: 'Interior areas are safer than exterior walls and windows. Drop, cover, hold on.',
+    doorframe: 'A strong door frame offers some protection. Prefer getting under sturdy furniture if possible.',
+    'door frame': 'A strong door frame offers some protection. Prefer getting under sturdy furniture if possible.',
+    sturdy: 'Sturdy, low furniture is better than tall or unanchored items. Use it for cover.',
+  },
+  flood: {
+    stair: 'Stairs let you move to a higher floor quickly. Do not use elevators; take stairs to upper levels.',
+    staircase: 'A staircase is your route to higher ground. Take it now — do not use elevators.',
+    stairs: 'Stairs are the safest way up. Move to higher floors immediately.',
+    roof: 'In extreme flooding, the roof may be a last resort. Only if instructed and safe to access.',
+    upper: 'Upper floors are safer than ground level. Move up as water rises.',
+    high: 'High ground or upper stories reduce flood risk. Move up if you can.',
+  },
+  tornado: {
+    basement: 'A basement is one of the safest places in a tornado. Go to the lowest level, away from windows.',
+    bathroom: 'Small interior bathrooms often have reinforcing plumbing. Get in and cover yourself.',
+    bathtub: 'A bathtub in an interior bathroom offers extra protection. Get in and cover yourself — add a mattress if available.',
+    closet: 'An interior closet has fewer windows and less exposure. Get inside and close the door.',
+    hallway: 'An interior hallway away from windows can offer protection. Stay low and cover your head.',
+    interior: 'Interior rooms and hallways are safer than exterior walls. Stay in the center of the building.',
+  },
+  blast: {
+    interior: 'Interior rooms are better protected from blast and flying debris. Stay inside, away from windows.',
+    wall: 'Sturdy interior walls provide some protection. Stay low and away from exterior walls and glass.',
+    column: 'Structural columns can offer partial cover. Put solid material between you and the blast.',
+    behind: 'Being behind solid cover reduces exposure. Use furniture or walls between you and windows.',
+    desk: 'A heavy desk can provide cover from debris. Get under it if you cannot reach a better shelter.',
+    table: 'A solid table can offer partial protection. Get under it and hold on.',
+    couch: 'A heavy couch or sofa can absorb shrapnel. Crouch behind it away from windows.',
+    sofa: 'A heavy sofa provides cover from debris. Get behind or under it, facing away from windows.',
+    bed: 'Get between the mattress and bed frame for protection from shrapnel and debris.',
+  },
+  fire: {
+    exit: 'Exits are your primary escape route. Keep the path clear and move quickly.',
+    'exit sign': 'Follow the exit sign — it leads to an escape route. Move quickly, stay low.',
+    door: 'Close doors behind you as you leave to slow smoke and fire. Use the door to reach an exit.',
+    egress: 'Egress routes lead outside. Stay near a clear path to the exit.',
+    stair: 'Stairs are the safest way down. Never use elevators in a fire.',
+    staircase: 'A staircase is your escape route. Move quickly but stay calm; do not use elevators.',
+  },
+  hazmat: {
+    interior: 'Interior rooms with fewer windows reduce exposure. Stay inside and seal gaps if advised.',
+    bathroom: 'Bathrooms often have fewer vents and can be sealed. Use wet towels under the door.',
+    seal: 'Sealed rooms reduce outside air. Close windows and doors; seal gaps if instructed.',
+    room: 'A small interior room with minimal openings is easier to seal. Stay there until advised.',
+    closet: 'An interior closet with no exterior vents can be quickly sealed. Use tape and towels on gaps.',
+  },
 };
 
 function labelMatches(detectionLabel: string, keywords: string[]): boolean {
   const lower = detectionLabel.toLowerCase();
   return keywords.some((k) => lower.includes(k));
+}
+
+function bestMatchKeyword(detectionLabel: string, keywords: string[]): string | null {
+  const lower = detectionLabel.toLowerCase();
+  for (const k of keywords) {
+    if (lower.includes(k)) return k;
+  }
+  return null;
+}
+
+function getDangerReason(mode: DisasterMode, matchedKeyword: string): string {
+  return DANGER_REASONS[mode][matchedKeyword] ?? `This area is hazardous in ${mode} conditions. Stay away.`;
+}
+
+function getSafeReason(mode: DisasterMode, matchedKeyword: string): string {
+  return SAFE_REASONS[mode][matchedKeyword] ?? `This area can be relatively safer in ${mode} conditions.`;
+}
+
+/** Exit zone description based on the detected object. */
+function exitZoneLabel(detectionLabel: string): string {
+  if (detectionLabel.includes('stair')) return 'Take stairs to safety';
+  if (detectionLabel.includes('exit sign')) return 'Follow exit sign';
+  return 'Use as escape route if clear';
 }
 
 export function ruleBasedSafety(
@@ -48,12 +187,16 @@ export function ruleBasedSafety(
   let dangerCount = 0;
 
   detection.detections.forEach((d, i) => {
-    const isDanger = labelMatches(d.label, dangerKeywords);
-    const isSafe = labelMatches(d.label, safeKeywords);
+    const dangerKeyword = bestMatchKeyword(d.label, dangerKeywords);
+    const safeKeyword = bestMatchKeyword(d.label, safeKeywords);
+    const isExitObject = labelMatches(d.label, EXIT_LABELS);
+    const isDanger = dangerKeyword !== null && d.confidence > 0.3;
+    const isSafe = safeKeyword !== null && d.confidence > 0.3 && !isDanger;
 
-    if (isDanger && d.confidence > 0.3) {
+    if (isDanger && dangerKeyword) {
       dangerCount++;
-      riskDescriptions.push(`${d.label} (${(d.confidence * 100).toFixed(0)}% confidence)`);
+      const reason = getDangerReason(mode, dangerKeyword);
+      riskDescriptions.push(reason.length > 70 ? `${d.label}: ${reason.slice(0, 70)}…` : `${d.label}: ${reason}`);
       zones.push({
         id: `zone_danger_${i}`,
         type: 'danger',
@@ -61,44 +204,60 @@ export function ruleBasedSafety(
         bbox: d.bbox,
         label: 'DANGER',
         short_description: d.label,
-        detailed_reasoning: `Detected ${d.label}. In ${mode} mode this area is not safe.`,
+        detailed_reasoning: reason,
         references_detections: [d.id],
         action: 'Stay away',
       });
-    } else if (isSafe && d.confidence > 0.3) {
+    } else if (isSafe && safeKeyword) {
       safeCount++;
+      const reason = getSafeReason(mode, safeKeyword);
       zones.push({
         id: `zone_safe_${i}`,
         type: 'safe',
-        priority: 1,
+        priority: safeCount,
         bbox: d.bbox,
         label: 'SAFE',
         short_description: d.label,
-        detailed_reasoning: `Detected ${d.label}. In ${mode} mode this can be a safer spot.`,
+        detailed_reasoning: reason,
         references_detections: [d.id],
-        action: 'Move here if possible',
+        action: 'Move here and take cover',
+      });
+    } else if (isExitObject && d.confidence > 0.3) {
+      // Emit exit zones so they appear as "→ EXIT" overlays on the result photo
+      zones.push({
+        id: `zone_exit_${i}`,
+        type: 'exit' as ZoneType,
+        priority: 1,
+        bbox: d.bbox,
+        label: 'EXIT',
+        short_description: d.label,
+        detailed_reasoning: exitZoneLabel(d.label),
+        references_detections: [d.id],
+        action: 'Move toward this exit if route is clear',
       });
     }
   });
 
   const overall = Math.max(0, 100 - dangerCount * 25 + safeCount * 10);
+
   const exit_routes: ExitRoute[] = detection.detections
-    .filter((d) => labelMatches(d.label, ['door', 'exit', 'stair']))
-    .slice(0, 2)
+    .filter((d) => labelMatches(d.label, EXIT_LABELS))
+    .slice(0, 3)
     .map((d, i) => ({
       id: `exit_${i}`,
       priority: i + 1,
-      path_description: d.label,
+      path_description: d.label.charAt(0).toUpperCase() + d.label.slice(1),
       bbox: d.bbox,
       is_blocked: false,
-      notes: null,
+      notes: exitZoneLabel(d.label),
     }));
 
   const actions: SafetyAction[] = [];
-  if (zones.some((z) => z.type === 'safe')) {
+  const topSafe = zones.filter((z) => z.type === 'safe').sort((a, b) => a.priority - b.priority)[0];
+  if (topSafe) {
     actions.push({
       priority: 1,
-      instruction: 'Move toward a green SAFE zone if you can.',
+      instruction: `Move to ${topSafe.short_description} — safest area identified. ${topSafe.action}.`,
       direction: null,
       urgency: 'immediate',
     });
@@ -111,16 +270,24 @@ export function ruleBasedSafety(
       urgency: 'immediate',
     });
   }
+  if (exit_routes.length > 0) {
+    actions.push({
+      priority: 3,
+      instruction: `Exit route: ${exit_routes[0].path_description}. ${exit_routes[0].notes ?? ''}`,
+      direction: null,
+      urgency: 'recommended',
+    });
+  }
   actions.push({
-    priority: 3,
-    instruction: `Safety score: ${overall}/100. ${safeCount} safer areas, ${dangerCount} hazards.`,
+    priority: 4,
+    instruction: `Safety score: ${overall}/100. ${safeCount} safer area${safeCount !== 1 ? 's' : ''}, ${dangerCount} hazard${dangerCount !== 1 ? 's' : ''}.`,
     direction: null,
     urgency: 'recommended',
   });
 
   const voice_response =
     safeCount > 0 || dangerCount > 0
-      ? `Found ${safeCount} safer areas and ${dangerCount} hazards. ${actions[0]?.instruction ?? 'Stay alert.'} Safety score: ${overall} out of 100.`
+      ? `Found ${safeCount} safer area${safeCount !== 1 ? 's' : ''} and ${dangerCount} hazard${dangerCount !== 1 ? 's' : ''}. ${actions[0]?.instruction ?? 'Stay alert.'} Safety score: ${overall} out of 100.`
       : `Analysis complete. Safety score: ${overall} out of 100. Stay alert.`;
 
   return {
@@ -130,7 +297,7 @@ export function ruleBasedSafety(
     safety_score: {
       overall,
       structural: overall,
-      egress: exit_routes.length > 0 ? 80 : 50,
+      egress: exit_routes.length > 0 ? 85 : 50,
       hazard_exposure: Math.max(0, 100 - dangerCount * 30),
     },
     zones,

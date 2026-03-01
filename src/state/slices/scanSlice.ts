@@ -1,5 +1,6 @@
 export interface ScanState {
   is_active: boolean;
+  live_scan_enabled: boolean;
   current_frame_id: string | null;
   frames_analyzed: number;
   last_analysis_timestamp: string | null;
@@ -7,6 +8,7 @@ export interface ScanState {
 
 export const initialScanState: ScanState = {
   is_active: false,
+  live_scan_enabled: false,
   current_frame_id: null,
   frames_analyzed: 0,
   last_analysis_timestamp: null,
@@ -15,6 +17,7 @@ export const initialScanState: ScanState = {
 export interface ScanActions {
   startScan: () => void;
   stopScan: () => void;
+  setLiveScanEnabled: (enabled: boolean) => void;
   setCurrentFrameId: (id: string | null) => void;
   setFramesAnalyzed: (n: number) => void;
   setLastAnalysisTimestamp: (ts: string | null) => void;
@@ -29,6 +32,7 @@ export function createScanSlice(set: (fn: (s: ScanState) => Partial<ScanState>) 
         is_active: false,
         current_frame_id: null,
       })),
+    setLiveScanEnabled: (enabled: boolean) => set(() => ({ live_scan_enabled: enabled })),
     setCurrentFrameId: (id: string | null) => set(() => ({ current_frame_id: id })),
     setFramesAnalyzed: (n: number) => set(() => ({ frames_analyzed: n })),
     setLastAnalysisTimestamp: (ts: string | null) => set(() => ({ last_analysis_timestamp: ts })),

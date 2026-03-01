@@ -10,6 +10,16 @@ function hashFrameId(s: string): number {
   return h;
 }
 
+/** Pseudorandom jitter in [0, 1] from seed. Keeps bboxes dynamic across frames. */
+function jitter(seed: number, scale = 0.06): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return (x - Math.floor(x)) * scale - scale / 2;
+}
+
+function clamp01(x: number): number {
+  return Math.max(0, Math.min(1, x));
+}
+
 /** Mock scenes: different layouts so rescanning shows different safe/danger zones. */
 const MOCK_SCENES: Array<Array<{ label: string; category: string; x1: number; y1: number; x2: number; y2: number; confidence: number }>> = [
   // Scene 0: desk (safe), window (danger), wall (safe)
@@ -46,23 +56,36 @@ const MOCK_SCENES: Array<Array<{ label: string; category: string; x1: number; y1
 
 /**
  * Mock detection for when no API is configured. Varies by frameId so each rescan can show different zones.
+ * Adds small jitter to bboxes so positions feel dynamic rather than fixed.
  */
 function mockDetection(frameId: string, _imageBase64: string): DetectionResult {
   const sceneIndex = hashFrameId(frameId) % MOCK_SCENES.length;
   const scene = MOCK_SCENES[sceneIndex];
-  const detections = scene.map((d, i) => ({
-    id: i + 1,
-    label: d.label,
-    category: d.category as 'furniture' | 'structural' | 'exits' | 'hazards',
-    bbox: { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 },
-    confidence: d.confidence,
-    attributes: {
-      estimated_height_m: null as number | null,
-      anchored_to_wall: null as boolean | null,
-      material: null as string | null,
-      is_structural: null as boolean | null,
-    },
-  }));
+  const seed = hashFrameId(frameId) + Date.now() % 10000;
+  const detections = scene.map((d, i) => {
+    const jx1 = jitter(seed + i * 7);
+    const jy1 = jitter(seed + i * 11 + 1);
+    const jx2 = jitter(seed + i * 13 + 2);
+    const jy2 = jitter(seed + i * 17 + 3);
+    return {
+      id: i + 1,
+      label: d.label,
+      category: d.category as 'furniture' | 'structural' | 'exits' | 'hazards',
+      bbox: {
+        x1: clamp01(d.x1 + jx1),
+        y1: clamp01(d.y1 + jy1),
+        x2: clamp01(d.x2 + jx2),
+        y2: clamp01(d.y2 + jy2),
+      },
+      confidence: d.confidence,
+      attributes: {
+        estimated_height_m: null as number | null,
+        anchored_to_wall: null as boolean | null,
+        material: null as string | null,
+        is_structural: null as boolean | null,
+      },
+    };
+  });
   return {
     frame_id: frameId,
     timestamp: Date.now() / 1000,

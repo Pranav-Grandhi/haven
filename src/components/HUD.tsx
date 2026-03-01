@@ -9,6 +9,7 @@ export function HUD() {
   const active = useStore((s) => s.active);
   const current = useStore((s) => s.current);
   const is_active = useStore((s) => s.is_active);
+  const live_scan_enabled = useStore((s) => s.live_scan_enabled);
 
   if (!hud_visible) return null;
 
@@ -21,6 +22,11 @@ export function HUD() {
       <Text style={styles.mode}>🔴 {modeLabel.toUpperCase()}</Text>
       <Text style={styles.score}>Safety: {score}/100</Text>
       <Text style={styles.risks}>⚠️ {riskCount} risks</Text>
+      {live_scan_enabled && (
+        <View style={styles.liveBadge}>
+          <Text style={styles.liveBadgeText}>LIVE</Text>
+        </View>
+      )}
       {is_active && (
         <View style={styles.scanning}>
           <Text style={styles.scanningText}>Scanning...</Text>
@@ -54,6 +60,17 @@ const styles = StyleSheet.create({
   risks: {
     color: '#fff',
     fontSize: 14,
+  },
+  liveBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  liveBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
   },
   scanning: {
     backgroundColor: 'rgba(59, 130, 246, 0.8)',

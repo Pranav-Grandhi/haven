@@ -3,10 +3,11 @@ import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useStore } from '../state/store';
 
 type ScanButtonProps = {
-  onScan: () => Promise<void>;
+  onScan: () => void | Promise<void>;
+  disabled?: boolean;
 };
 
-export function ScanButton({ onScan }: ScanButtonProps) {
+export function ScanButton({ onScan, disabled = false }: ScanButtonProps) {
   const is_active = useStore((s) => s.is_active);
   const stopScan = useStore((s) => s.stopScan);
   const active = useStore((s) => s.active);
@@ -21,14 +22,14 @@ export function ScanButton({ onScan }: ScanButtonProps) {
 
   return (
     <Pressable
-      style={[styles.button, is_active && styles.buttonActive]}
+      style={[styles.button, is_active && styles.buttonActive, (disabled || !active) && styles.buttonDisabled]}
       onPress={handlePress}
-      disabled={!active}
+      disabled={!active || disabled}
     >
       {is_active ? (
         <ActivityIndicator color="#fff" />
       ) : (
-        <Text style={styles.label}>Scan</Text>
+        <Text style={styles.label}>Scan room</Text>
       )}
     </Pressable>
   );
@@ -45,6 +46,9 @@ const styles = StyleSheet.create({
   },
   buttonActive: {
     backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   label: {
     color: '#fff',

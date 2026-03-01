@@ -84,3 +84,47 @@ Analyze this space for ${mode} safety. Return a JSON object with:
 - voice_response: 1-2 sentence summary for audio
 - risks_summary: total_count, critical_count, descriptions array`;
 }
+
+/** Prompt for LLM to suggest what to do with visual cues from current scan + user context. */
+export const WHAT_TO_DO_SYSTEM_PROMPT = `You are a disaster safety coach inside the Haven app. The user has just run a room scan. You receive:
+1. The current disaster mode (e.g. earthquake, flood).
+2. A summary of what was detected: safe zones, danger zones, exit routes, and recommended actions.
+3. Optional context from the user (e.g. "I'm with a child", "I can't move quickly", "there's a dog").
+
+Your job: Give 3–6 short, concrete steps the user should take right now. Each step must include a visual cue so the app can show icons.
+
+RULES:
+- Be direct and actionable. Use "you" and imperatives (Move to…, Avoid…, Then…).
+- Reference the scan: "the safe zone on your left", "the window ahead", "the door to the hallway".
+- If the user gave context (mobility, children, pets), factor it into the steps.
+- Each step is one line. Use the cue to convey type: go/safe, avoid/danger, direction/next, warning, or location.
+- Return valid JSON only. No markdown or code fences.`;
+
+export function buildWhatToDoUserPrompt(params: {
+  mode: string;
+  zonesSummary: string;
+  actionsSummary: string;
+  risksSummary: string;
+  exitSummary: string;
+  userSaid: string;
+}): string {
+  const { mode, zonesSummary, actionsSummary, risksSummary, exitSummary, userSaid } = params;
+  return `DISASTER MODE: ${mode}
+
+SAFE ZONES / DANGER ZONES:
+${zonesSummary}
+
+RECOMMENDED ACTIONS (from scan):
+${actionsSummary}
+
+RISKS IDENTIFIED:
+${risksSummary}
+
+EXITS:
+${exitSummary}
+
+${userSaid ? `USER CONTEXT (what they said): "${userSaid}"` : 'USER CONTEXT: None provided.'}
+
+Respond with a JSON object: { "steps": [ { "cue": "🟢", "text": "Short instruction" }, ... ] }
+Use cues like: 🟢 (safe/go), 🔴 (avoid/danger), ➡️ (then/next), ⚠️ (warning), 📍 (location), 🚪 (exit).`;
+}
