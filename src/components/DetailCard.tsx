@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useStore } from '../state/store';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
-import { ZONE_COLORS, DETAIL_CARD_BACKGROUND } from '../constants/colors';
+import { ZONE_COLORS } from '../constants/colors';
 import type { ZoneType } from '../types';
 import { useZoneTracking } from '../hooks/useZoneTracking';
 
@@ -60,12 +60,16 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   card: {
-    backgroundColor: DETAIL_CARD_BACKGROUND,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: 'rgba(26,26,46,0.98)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     maxHeight: '40%',
     paddingBottom: 24,
   },

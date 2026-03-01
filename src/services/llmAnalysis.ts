@@ -69,6 +69,79 @@ EXIT: door (check for heat first), staircase (never elevator), exit sign, window
 SAFE: interior room with the fewest openings — a bathroom is ideal (seal door gap with wet towels, cover vents).
 DANGER: air vents and HVAC grilles, windows that do not seal tightly, electrical outlet gaps (air paths).
 EXIT: only if ordered to evacuate; use sealed interior doors to limit exposure while moving.`,
+
+  hurricane: `GET TO THE LOWEST INTERIOR ROOM AWAY FROM ALL WINDOWS.
+SAFE: interior bathroom or closet on lowest floor (no exterior walls), under a staircase, bathtub with mattress overhead.
+DANGER: all windows and glass doors (flying debris impact), exterior walls, garage doors (structurally weakest), ground-floor areas if flooding.
+EXIT: stay sheltered until storm has fully passed — do not go outside during the eye of the storm.`,
+
+  nuclear: `SHELTER IN PLACE — MAXIMIZE SHIELDING AND SEAL THE ROOM.
+SAFE: basement or lowest interior floor (most shielding), interior room with multiple walls between you and outdoors, sealed room with vents and gaps covered.
+DANGER: windows and exterior doors (fallout enters), HVAC and vents (draw in contaminated air), upper floors and roof (more radiation exposure).
+EXIT: stay inside at least 24 hours; only leave if officially ordered and the route is confirmed safe.`,
+
+  lockdown: `SHELTER IN PLACE — LOCK, BARRICADE, AND HIDE.
+SAFE: lockable interior room away from windows and doors, barricaded door with heavy furniture, positioned below window line and out of sight from entry points.
+DANGER: windows and glass panels (visible from outside), doors with glass inserts, open corridors and hallways near entrances.
+EXIT: only if a clear and safe escape route exists — move silently and stay out of sight.`,
+
+  winter: `STAY INDOORS — CONSERVE HEAT AND SHELTER FROM COLD.
+SAFE: interior room with insulated walls, areas near a heat source (fireplace, radiator, or heating vent), rooms with minimal drafts.
+DANGER: exterior walls and windows (cold drafts, heat loss), unheated rooms and garages (hypothermia risk), areas near broken or unsealed windows.
+EXIT: do not go outside unless absolutely necessary; if you must, use the most sheltered exit away from wind.`,
+};
+
+// ─── Outdoor safety guide (when user scans an outdoor space) ──────────────────
+const MODE_GUIDE_OUTDOOR: Record<DisasterMode, string> = {
+  earthquake: `OUTDOORS — DROP, COVER, HOLD ON. Move to open area.
+SAFE: open ground away from buildings, trees, power lines, overpasses, and cliffs. Drop and cover your head.
+DANGER: next to buildings (falling debris, glass), under trees (can fall), power lines (can snap), overpasses/bridges (can collapse), steep slopes (landslide).
+EXIT: move to the clearest open area; stay there until shaking stops.`,
+
+  flood: `OUTDOORS — GET TO HIGH GROUND. Do not walk or drive through floodwater.
+SAFE: high ground, elevated structure, roof of a sturdy building if already safe inside. Move uphill.
+DANGER: low areas, riverbanks, drainage channels, flowing or standing water (depth unknown, electrocution), vehicles in water.
+EXIT: move to highest nearby ground; avoid driving through water.`,
+
+  tornado: `OUTDOORS — GET TO LOWEST GROUND. Do not stay in a vehicle or under an overpass.
+SAFE: low ditch or ravine, lie flat and protect your head with your arms. If in a vehicle and no shelter, stay in car with seatbelt, put head below windows.
+DANGER: under highway overpass (wind tunnel, debris), staying in car in open (can be tossed), near trees (can fall or become projectiles).
+EXIT: get to a low spot, cover head; if possible reach a sturdy building and go to lowest interior room.`,
+
+  hurricane: `OUTDOORS — SEEK STURDY SHELTER. Avoid flood zones and wind exposure.
+SAFE: sturdy building, interior room away from windows. If trapped outside, high ground away from flood risk and flying debris.
+DANGER: outside in wind, flood-prone areas, near windows or glass, under trees, coastal/low-lying areas.
+EXIT: evacuate to designated shelter or sturdy building; do not go outside during the eye of the storm.`,
+
+  blast: `OUTDOORS — GET DOWN, COVER HEAD. Move away from buildings and glass.
+SAFE: behind solid structure (concrete wall, earth), lie flat. Put solid material between you and the blast direction.
+DANGER: standing near windows or glass, open areas with no cover, secondary collapses.
+EXIT: move away from blast zone and debris; avoid damaged structures.`,
+
+  fire: `OUTDOORS — STAY UPWIND. Evacuate to cleared area.
+SAFE: upwind of fire, cleared area or already-burned ground, body of water if shallow and safe to reach.
+DANGER: downwind (smoke, embers), canyons (fire channels), areas with heavy fuel (dry brush, trees).
+EXIT: follow evacuation route to designated safe zone; cover mouth with cloth if in smoke.`,
+
+  hazmat: `OUTDOORS — MOVE UPWIND AND UPHILL. Get away from source.
+SAFE: upwind and uphill from release, inside a building if instructed to shelter in place (seal room).
+DANGER: downwind, low areas (chemicals pool), visible plume or spill.
+EXIT: evacuate in direction specified by authorities; cover mouth if needed.`,
+
+  nuclear: `OUTDOORS — SHELTER IN PLACE if no time to reach better shelter. Minimize exposure.
+SAFE: basement or center of sturdy building (best). If outside: behind solid structure, then move to shelter as soon as safe.
+DANGER: open exposure, downwind of plume, staying outside. Fallout settles; thick shielding and distance matter.
+EXIT: get inside a building; stay at least 24 hours unless officially told to evacuate.`,
+
+  lockdown: `OUTDOORS — RUN, HIDE, or FIGHT as last resort. Get to safety.
+SAFE: secure building (lock doors), room you can barricade, out of sight from windows/doors. If outside, run to safe location.
+DANGER: open areas, lines of sight from threat, glass or unsecured doors.
+EXIT: escape only if clear path; otherwise hide and silence devices.`,
+
+  winter: `OUTDOORS — GET INDOORS. If stranded, conserve heat and stay dry.
+SAFE: heated shelter, vehicle (engine off, window cracked if running for heat), protected from wind.
+DANGER: exposed to wind and wet, low body temperature (hypothermia), thin clothing, standing in water or snow.
+EXIT: move to shelter; if trapped, stay in vehicle and make yourself visible to rescuers.`,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -146,16 +219,20 @@ export type LLMAnalysisResult =
   | { ok: true; analysis: SafetyAnalysis; resultPhotoUri: string }
   | { ok: false; error: string };
 
+export type ScanContext = 'indoor' | 'outdoor';
+
 /**
  * Send captured frames directly to Claude Vision and get a full SafetyAnalysis back.
  *
  * @param allFrames  All frames from the 360° sweep.
  * @param mode       Active disaster mode.
+ * @param context    Whether the user scanned an indoor room or an outdoor space.
  * @returns Result with analysis on success, or { ok: false, error } with a specific message.
  */
 export async function analyzeRoomWithLLM(
   allFrames: ScanFrame[],
-  mode: DisasterMode
+  mode: DisasterMode,
+  context: ScanContext = 'indoor'
 ): Promise<LLMAnalysisResult> {
   if (!OPENAI_API_KEY || allFrames.length === 0) {
     return { ok: false, error: 'API key not set or no frames.' };
@@ -188,18 +265,29 @@ export async function analyzeRoomWithLLM(
     });
   });
 
-  const prompt = `You are a certified disaster-safety expert analyzing a 360° room scan.
+  const isOutdoor = context === 'outdoor';
+  const modeGuide = isOutdoor ? MODE_GUIDE_OUTDOOR[mode] : MODE_GUIDE[mode];
+  const spaceLabel = isOutdoor ? 'outdoor space' : 'room';
+  const sweepLabel = isOutdoor ? 'the area' : 'the room';
+  const safestExamples = isOutdoor
+    ? '(e.g. "the open field away from trees", "high ground on the hill", "the ditch to your left")'
+    : '(e.g. "under the wooden desk", "inside the bathroom tub", "against the interior wall beside the sofa")';
+  const featureExamples = isOutdoor
+    ? '(e.g. "tall building", "power lines", "open field", "tree line", "flooded area")'
+    : '(e.g. "wooden desk", "large window", "interior door")';
 
-${validBase64.length} photos were taken as the camera swept around the room during a ${mode.toUpperCase()} emergency. Together they show the complete space from all angles.
+  const prompt = `You are a certified disaster-safety expert analyzing a 360° scan of a ${spaceLabel}.
 
-${MODE_GUIDE[mode]}
+${validBase64.length} photos were taken as the camera swept around ${sweepLabel} during a ${mode.toUpperCase()} emergency. Together they show the complete space from all angles. This is an ${isOutdoor ? 'OUTDOOR' : 'INDOOR ROOM'} scene.
 
-TASK: Look at all photos to understand the full room. Then identify the key safety zones in PHOTO 1 (the main result photo).
+${modeGuide}
 
-CRITICAL — You must name ONE clearest safest spot: the single best place to take cover (e.g. "under the wooden desk", "inside the bathroom tub", "against the interior wall beside the sofa"). Put the first safe zone in your "zones" array as that single best option (priority will be inferred from order). The user must see one unambiguous answer: "Safest: [place]."
+TASK: Look at all photos to understand the full scene. Then identify the key safety zones in PHOTO 1 (the main result photo).
+
+CRITICAL — You must name ONE clearest safest spot: the single best place to take cover or go ${isOutdoor ? '(e.g. open ground, high ground, ditch, sturdy structure)' : ''} ${safestExamples}. Put the first safe zone in your "zones" array as that single best option (priority will be inferred from order). The user must see one unambiguous answer: "Safest: [place]."
 
 For every significant feature visible in Photo 1, classify it:
-• "safe"   → where to take cover (under / beside / inside); list the single best option first
+• "safe"   → where to take cover or go; list the single best option first
 • "danger" → hazardous, must avoid immediately
 • "exit"   → use to escape or reach safety
 
@@ -207,27 +295,32 @@ Rules for bounding boxes (VERY IMPORTANT):
 - Coordinates are for PHOTO 1 only, normalized 0.0–1.0
 - (0.0, 0.0) = top-left corner of Photo 1
 - (1.0, 1.0) = bottom-right corner of Photo 1
-- Make boxes tight around the actual object, not the whole image
+- Make boxes tight around the actual object or area, not the whole image
 - If an object takes up the left third: x1≈0.0, x2≈0.33
 
 Return ONLY valid JSON — absolutely no markdown, no text outside the object:
 {
   "zones": [
     {
-      "label": "describe what you actually see (e.g. 'wooden desk', 'large window', 'interior door')",
+      "label": "describe what you actually see ${featureExamples}",
       "type": "safe | danger | exit",
       "reasoning": "one sentence, specific to ${mode}",
       "action": "imperative instruction, 8 words max",
       "bbox": { "x1": 0.0, "y1": 0.0, "x2": 1.0, "y2": 1.0 }
     }
   ],
-  "overall_score": <integer 0–100, higher = safer room>,
-  "primary_action": "ONE clear instruction: go to [the specific safest place you named]. Example: 'Get under the sturdy desk now.' 15 words max.",
+  "overall_score": <integer 0–100, higher = safer>,
+  "primary_action": "ONE clear instruction: go to [the specific safest place you named]. 15 words max.",
   "voice_summary": "Start with the safest place: 'The safest place is [specific location]. [One more short instruction].' 2 short sentences."
 }`;
 
+  const REQUEST_TIMEOUT_MS = 90_000; // 90 seconds for vision + multiple images
+
   try {
     contentParts.push({ type: 'text', text: prompt });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -245,7 +338,10 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
           },
         ],
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       let body = '';
@@ -371,18 +467,31 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
       },
     };
 
-    return { ok: true, analysis, resultPhotoUri: resultFrame.uri };
+    // Copy result photo to cache so the URI stays valid when showing the result (avoids black screen in Expo Go)
+    let resultPhotoUri = resultFrame.uri;
+    try {
+      const cachePath = `${cacheDirectory}shelterscan_result.jpg`;
+      await copyAsync({ from: resultFrame.uri, to: cachePath });
+      resultPhotoUri = cachePath;
+    } catch {
+      // Keep original URI if copy fails
+    }
+
+    return { ok: true, analysis, resultPhotoUri };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    const isAbort = e instanceof Error && e.name === 'AbortError';
     const isNetwork =
       message.includes('fetch') ||
       message.includes('network') ||
       message.includes('Failed to fetch');
     return {
       ok: false,
-      error: isNetwork
-        ? 'Network error. Check your internet connection and try again.'
-        : `Error: ${message.slice(0, 80)}`,
+      error: isAbort
+        ? 'Analysis is taking too long. Check your connection and try again.'
+        : isNetwork
+          ? 'Network error. Check your internet connection and try again.'
+          : `Error: ${message.slice(0, 80)}`,
     };
   }
 }

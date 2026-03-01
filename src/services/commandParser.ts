@@ -9,9 +9,13 @@ const MODE_KEYWORDS: Record<DisasterMode, string[]> = {
   earthquake: ['earthquake', 'quake', 'seismic'],
   flood: ['flood', 'flooding', 'water'],
   tornado: ['tornado', 'twister', 'cyclone'],
+  hurricane: ['hurricane', 'tropical storm', 'typhoon'],
   blast: ['blast', 'explosion', 'bomb'],
   fire: ['fire', 'burning', 'smoke'],
   hazmat: ['hazmat', 'chemical', 'gas', 'radiation'],
+  nuclear: ['nuclear', 'fallout', 'radiation', 'radioactive'],
+  lockdown: ['lockdown', 'active shooter', 'threat', 'intruder'],
+  winter: ['winter', 'blizzard', 'snowstorm', 'freeze'],
 };
 
 function normalize(text: string): string {

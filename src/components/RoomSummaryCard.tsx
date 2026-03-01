@@ -12,10 +12,10 @@ export function RoomSummaryCard() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Room summary</Text>
+      <Text style={styles.title}>Your safety summary</Text>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🟢 Safest</Text>
+          <Text style={styles.sectionTitle}>🟢 Safest spot</Text>
           <Text style={styles.bodyText}>{room_summary.safest}</Text>
         </View>
         <View style={styles.section}>
@@ -39,44 +39,46 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(26,26,46,0.6)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.1)',
     maxHeight: 220,
     paddingBottom: 12,
   },
   title: {
-    color: 'rgba(255,255,255,0.95)',
+    color: '#f1f5f9',
     fontSize: 14,
     fontWeight: '700',
-    paddingHorizontal: 14,
-    paddingTop: 12,
+    letterSpacing: 0.2,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 8,
   },
   scroll: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   section: {
     marginBottom: 10,
   },
   sectionTitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '700',
+    color: 'rgba(241,245,249,0.9)',
+    fontSize: 11,
+    fontWeight: '800',
     marginBottom: 4,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dangerTitle: {
-    color: 'rgba(239, 68, 68, 0.95)',
+    color: '#f87171',
   },
   bodyText: {
-    color: 'rgba(255,255,255,0.88)',
+    color: 'rgba(226,232,240,0.92)',
     fontSize: 13,
     lineHeight: 20,
   },
   bullet: {
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(226,232,240,0.88)',
     fontSize: 13,
     lineHeight: 20,
     marginLeft: 4,

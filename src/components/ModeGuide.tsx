@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useStore } from '../state/store';
-import { DISASTER_MODES, MODE_DANGERS, MODE_SAFE_COVER } from '../constants/disasterModes';
+import { DISASTER_MODES, MODE_DANGERS, MODE_SAFE_COVER, MODE_DANGERS_OUTDOOR, MODE_SAFE_COVER_OUTDOOR } from '../constants/disasterModes';
 import type { DisasterMode } from '../types';
 
 /**
@@ -10,13 +10,15 @@ import type { DisasterMode } from '../types';
  */
 export function ModeGuide() {
   const active = useStore((s) => s.active);
+  const scan_context = useStore((s) => s.scan_context);
   const [expanded, setExpanded] = useState(false);
 
   if (!active) return null;
 
   const modeLabel = DISASTER_MODES[active].label;
-  const dangers = MODE_DANGERS[active as DisasterMode];
-  const safeCover = MODE_SAFE_COVER[active as DisasterMode];
+  const isOutdoor = scan_context === 'outdoor';
+  const dangers = isOutdoor ? MODE_DANGERS_OUTDOOR[active as DisasterMode] : MODE_DANGERS[active as DisasterMode];
+  const safeCover = isOutdoor ? MODE_SAFE_COVER_OUTDOOR[active as DisasterMode] : MODE_SAFE_COVER[active as DisasterMode];
 
   return (
     <View style={styles.container}>
@@ -26,14 +28,14 @@ export function ModeGuide() {
         accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} guide for ${modeLabel}`}
       >
         <Text style={styles.headerTitle}>
-          What to expect in {modeLabel}
+          {isOutdoor ? 'Outdoor' : 'Indoor'} tips for {modeLabel}
         </Text>
         <Text style={styles.chevron}>{expanded ? '▼' : '▶'}</Text>
       </Pressable>
       {expanded && (
         <View style={styles.body}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔴 May fall / avoid</Text>
+            <Text style={styles.sectionTitle}>{isOutdoor ? '🔴 Avoid' : '🔴 May fall / avoid'}</Text>
             {dangers.map((line, i) => (
               <Text key={i} style={styles.bullet}>
                 • {line}
@@ -41,7 +43,7 @@ export function ModeGuide() {
             ))}
           </View>
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, styles.safeTitle]}>🟢 Safe cover / where to go</Text>
+            <Text style={[styles.sectionTitle, styles.safeTitle]}>🟢 {isOutdoor ? 'Where to go' : 'Safe cover / where to go'}</Text>
             {safeCover.map((line, i) => (
               <Text key={i} style={styles.bullet}>
                 • {line}
@@ -58,50 +60,54 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(26,26,46,0.6)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
+    borderLeftWidth: 4,
+    borderLeftColor: 'rgba(34,197,94,0.5)',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   headerTitle: {
-    color: 'rgba(255,255,255,0.95)',
-    fontSize: 14,
+    color: '#f1f5f9',
+    fontSize: 15,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   chevron: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
   },
   body: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     gap: 14,
   },
   section: {
     gap: 4,
   },
   sectionTitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 4,
+    color: 'rgba(241,245,249,0.9)',
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 6,
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   safeTitle: {
-    color: 'rgba(34, 197, 94, 0.95)',
+    color: 'rgba(52,211,153,0.98)',
   },
   bullet: {
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(226,232,240,0.9)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 21,
     marginLeft: 4,
   },
 });

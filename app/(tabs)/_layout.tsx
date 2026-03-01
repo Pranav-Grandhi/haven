@@ -13,9 +13,18 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
+        tabBarActiveTintColor: '#34d399',
+        tabBarInactiveTintColor: 'rgba(148,163,184,0.9)',
+        tabBarStyle: {
+          backgroundColor: '#0f0f1a',
+          borderTopColor: 'rgba(255,255,255,0.08)',
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        headerStyle: { backgroundColor: '#0f0f1a' },
+        headerTintColor: '#f1f5f9',
+        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
         // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
       }}>
       <Tabs.Screen
@@ -52,13 +61,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Tab Two',
+          title: 'How to use',
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
+                ios: 'questionmark.circle',
+                android: 'info',
+                web: 'info',
               }}
               tintColor={color}
               size={28}

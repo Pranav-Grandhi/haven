@@ -10,7 +10,11 @@ export type DisasterMode =
   | 'tornado'
   | 'blast'
   | 'fire'
-  | 'hazmat';
+  | 'hazmat'
+  | 'hurricane'
+  | 'nuclear'
+  | 'lockdown'
+  | 'winter';
 
 export type ZoneType = 'safe' | 'danger' | 'caution' | 'exit';
 

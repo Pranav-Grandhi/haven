@@ -12,7 +12,6 @@ type ControlBarProps = {
 };
 
 export function ControlBar({ onScan, onSummarizeRoom, scanPhase = 'idle' }: ControlBarProps) {
-  const active = useStore((s) => s.active);
   const current = useStore((s) => s.current);
   const history = useStore((s) => s.history);
   const hasData = !!(current || history.length > 0);
@@ -21,66 +20,90 @@ export function ControlBar({ onScan, onSummarizeRoom, scanPhase = 'idle' }: Cont
 
   return (
     <View style={styles.bar}>
-      {isResult ? (
-        <Pressable style={styles.newScanButton} onPress={onScan}>
-          <Text style={styles.newScanLabel}>New scan</Text>
-        </Pressable>
-      ) : (
-        <ScanButton onScan={onScan} disabled={isBusy} />
-      )}
-      {!isResult && (
+      {/* Row 1 — scrollable mode pills */}
+      <View style={styles.modeRow}>
+        <ModeSelector />
+      </View>
+
+      {/* Row 2 — action buttons */}
+      <View style={styles.actionRow}>
         <Pressable
-          style={[styles.summaryButton, !hasData && styles.summaryButtonDisabled]}
+          style={[styles.summaryButton, (!hasData || isResult) && styles.summaryButtonDisabled]}
           onPress={onSummarizeRoom}
-          disabled={!hasData}
+          disabled={!hasData || isResult}
         >
-          <Text style={styles.summaryLabel}>Summarize</Text>
+          <Text style={styles.summaryLabel}>🔊  Hear summary</Text>
         </Pressable>
-      )}
-      <ModeSelector />
+
+        {isResult ? (
+          <Pressable style={styles.scanAgainButton} onPress={onScan}>
+            <Text style={styles.scanAgainLabel}>↩  Scan again</Text>
+          </Pressable>
+        ) : (
+          <ScanButton onScan={onScan} disabled={isBusy} />
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
+    backgroundColor: 'rgba(13,13,22,0.97)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.07)',
+    paddingBottom: 8,
+  },
+
+  // ── Row 1: mode pills ─────────────────────────────────────────────────────
+  modeRow: {
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+
+  // ── Row 2: action buttons ─────────────────────────────────────────────────
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingTop: 12,
     gap: 12,
   },
-  newScanButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.5)',
-    borderWidth: 2,
-    borderColor: 'rgba(59, 130, 246, 0.8)',
-  },
-  newScanLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   summaryButton: {
-    paddingVertical: 10,
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.35)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
   },
   summaryButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderColor: 'rgba(255,255,255,0.3)',
+    opacity: 0.4,
   },
   summaryLabel: {
-    color: '#fff',
-    fontSize: 12,
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scanAgainButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59,130,246,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.45)',
+    alignItems: 'center',
+  },
+  scanAgainLabel: {
+    color: '#e0f2fe',
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

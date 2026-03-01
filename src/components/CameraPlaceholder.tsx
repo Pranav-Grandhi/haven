@@ -20,6 +20,7 @@ export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPla
   const cameraRef = useRef<CameraViewType | null>(null);
   const requestedRef = useRef(false);
   const active = useStore((s) => s.active);
+  const scan_context = useStore((s) => s.scan_context);
   const is_active = useStore((s) => s.is_active);
 
   // Request camera permission once on mount so we don't cause a refresh loop
@@ -73,11 +74,13 @@ export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPla
     <View style={[styles.container, styles.placeholder]}>
       <Text style={styles.placeholderTitle}>ShelterScan</Text>
       <Text style={styles.placeholderSub}>
-        {active ? `Mode: ${active}` : 'Select a disaster mode below'}
+        {active
+          ? `${scan_context === 'outdoor' ? 'Outdoor' : 'Indoor'} • ${active.replace(/_/g, ' ')} mode`
+          : 'Pick a scenario below, then tap Start scan'}
       </Text>
       {isDenied ? (
         <Text style={styles.placeholderHint}>
-          Camera was denied. Enable it in device Settings for Haven, then reopen the app.
+          Camera access was denied. Open Settings → Haven → enable Camera, then reopen the app.
         </Text>
       ) : isWeb ? (
         <Text style={styles.placeholderHint} onPress={requestPermission}>
@@ -86,10 +89,10 @@ export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPla
       ) : (
         <>
           <Text style={styles.placeholderHint} onPress={requestPermission}>
-            Tap to enable camera for scan
+            Tap to allow camera access
           </Text>
           <Text style={styles.simulatorHint}>
-            On iOS Simulator, camera may not be available — use a real device for scanning.
+            On a simulator, use a real device to scan.
           </Text>
         </>
       )}
@@ -107,24 +110,30 @@ const styles = StyleSheet.create({
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   placeholderTitle: {
-    color: '#fff',
-    fontSize: 24,
+    color: '#f1f5f9',
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   placeholderSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 16,
+    color: 'rgba(226,232,240,0.82)',
+    fontSize: 15,
     marginBottom: 16,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   placeholderHint: {
-    color: '#3b82f6',
+    color: '#60a5fa',
     fontSize: 14,
+    fontWeight: '600',
   },
   simulatorHint: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(148,163,184,0.9)',
     fontSize: 12,
     marginTop: 12,
     textAlign: 'center',
@@ -133,8 +142,9 @@ const styles = StyleSheet.create({
   scanningBadge: {
     position: 'absolute',
     bottom: 16,
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
-    fontWeight: '600',
+    color: 'rgba(241,245,249,0.95)',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

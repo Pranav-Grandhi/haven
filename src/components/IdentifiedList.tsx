@@ -14,7 +14,7 @@ export function IdentifiedList({ safe, danger }: IdentifiedListProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Identified from camera</Text>
+      <Text style={styles.title}>Spotted in your space</Text>
       <View style={styles.row}>
         {safe.length > 0 && (
           <View style={styles.pill}>
@@ -36,16 +36,17 @@ export function IdentifiedList({ safe, danger }: IdentifiedListProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 14,
+    backgroundColor: 'rgba(15,15,26,0.7)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   title: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
+    color: 'rgba(241,245,249,0.75)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 10,
     textTransform: 'uppercase',
   },
   row: {
@@ -54,34 +55,37 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   pill: {
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    backgroundColor: 'rgba(34,197,94,0.18)',
     borderWidth: 1,
-    borderColor: '#22c55e',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: 'rgba(52,211,153,0.4)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     maxWidth: '100%',
   },
   dangerPill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: '#ef4444',
+    backgroundColor: 'rgba(239,68,68,0.16)',
+    borderColor: 'rgba(248,113,113,0.5)',
   },
   safeLabel: {
-    color: '#22c55e',
+    color: '#34d399',
     fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontWeight: '800',
+    marginBottom: 3,
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   dangerLabel: {
-    color: '#ef4444',
+    color: '#f87171',
     fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontWeight: '800',
+    marginBottom: 3,
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   items: {
-    color: '#fff',
+    color: '#e2e8f0',
     fontSize: 14,
+    lineHeight: 20,
   },
 });

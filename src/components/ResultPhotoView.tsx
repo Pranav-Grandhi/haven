@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
@@ -147,34 +147,39 @@ const bannerStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 14,
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1.5,
-    borderColor: '#22c55e',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.4)',
+    borderRadius: 14,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34d399',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 6,
+    marginBottom: 8,
+    gap: 8,
   },
   star: {
-    color: '#22c55e',
+    color: '#34d399',
     fontSize: 18,
     fontWeight: '700',
   },
   title: {
-    color: '#22c55e',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#34d399',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
     flex: 1,
   },
   pill: {
-    backgroundColor: '#22c55e',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(52,211,153,0.35)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.5)',
   },
   pillText: {
     color: '#fff',
@@ -227,18 +232,21 @@ const exitStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(59,130,246,0.1)',
+    backgroundColor: 'rgba(59,130,246,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.45)',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: 'rgba(96,165,250,0.4)',
+    borderRadius: 14,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#60a5fa',
   },
   title: {
-    color: '#3b82f6',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: 0.3,
+    color: '#60a5fa',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   row: {
     flexDirection: 'row',
@@ -280,7 +288,7 @@ function DangerSummary({ zones }: { zones: SafetyZone[] }) {
   if (!dangers.length) return null;
   return (
     <View style={dangerStyles.container}>
-      <Text style={dangerStyles.title}>✕ Avoid These Areas</Text>
+      <Text style={dangerStyles.title}>Avoid these areas</Text>
       {dangers.map((z) => (
         <Text key={z.id} style={dangerStyles.item} numberOfLines={2}>
           • {z.short_description} — {z.detailed_reasoning?.slice(0, 80)}
@@ -294,23 +302,27 @@ const dangerStyles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: 'rgba(239,68,68,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.35)',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: 'rgba(248,113,113,0.35)',
+    borderRadius: 14,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f87171',
   },
   title: {
-    color: '#ef4444',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 6,
+    color: '#f87171',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   item: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 4,
+    color: 'rgba(226,232,240,0.88)',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 6,
   },
 });
 
@@ -329,6 +341,12 @@ export function ResultPhotoView() {
   const result_photo_uri = useStore((s) => s.result_photo_uri);
   const room_summary = useStore((s) => s.room_summary);
   const current = useStore((s) => s.current);
+  const [photoError, setPhotoError] = useState(false);
+
+  // Reset error when a new result photo is set (e.g. after "Scan again")
+  useEffect(() => {
+    setPhotoError(false);
+  }, [result_photo_uri]);
 
   if (!result_photo_uri) return null;
 
@@ -364,14 +382,25 @@ export function ResultPhotoView() {
 
       <Text style={styles.title}>Panoramic Scan Result</Text>
 
-      {/* Result photo with zone overlays */}
+      {/* Result photo with zone overlays; fallback if image fails to load */}
       <View style={[styles.photoWrap, { width: pw, height: ph }]}>
-        <Image
-          source={{ uri: result_photo_uri }}
-          style={[styles.photo, { width: pw, height: ph }]}
-          resizeMode="cover"
-        />
-        <ResultPhotoOverlay zones={zones} layoutWidth={pw} layoutHeight={ph} />
+        {!photoError ? (
+          <Image
+            source={{ uri: result_photo_uri }}
+            style={[styles.photo, { width: pw, height: ph }]}
+            resizeMode="cover"
+            onError={() => setPhotoError(true)}
+          />
+        ) : null}
+        {photoError ? (
+          <View style={styles.photoFallback}>
+            <Text style={styles.photoFallbackText}>Scan photo unavailable</Text>
+            <Text style={styles.photoFallbackSubtext}>
+              Your safety summary above is still valid. Tap "Scan again" to capture a new room.
+            </Text>
+          </View>
+        ) : null}
+        {!photoError && <ResultPhotoOverlay zones={zones} layoutWidth={pw} layoutHeight={ph} />}
       </View>
 
       {/* Safest spot callout */}
@@ -400,28 +429,32 @@ const heroStyles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 4,
-    backgroundColor: 'rgba(34,197,94,0.18)',
-    borderWidth: 2,
-    borderColor: '#22c55e',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.4)',
+    borderRadius: 16,
+    padding: 18,
+    paddingLeft: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34d399',
   },
   heroLabel: {
-    color: '#22c55e',
-    fontSize: 12,
+    color: '#34d399',
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   heroAnswer: {
-    color: '#fff',
+    color: '#f1f5f9',
     fontSize: 18,
     fontWeight: '700',
-    lineHeight: 24,
+    lineHeight: 25,
+    letterSpacing: 0.2,
   },
   heroAction: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(226,232,240,0.92)',
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
@@ -438,21 +471,48 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   title: {
-    color: '#fff',
-    fontSize: 18,
+    color: 'rgba(241,245,249,0.85)',
+    fontSize: 13,
     fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
   },
   photoWrap: {
     alignSelf: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   photo: {
-    borderRadius: 12,
+    borderRadius: 14,
+  },
+  photoFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#252538',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  photoFallbackText: {
+    color: '#e2e8f0',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  photoFallbackSubtext: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   summaryWrap: {
     marginTop: 12,

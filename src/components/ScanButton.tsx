@@ -29,7 +29,7 @@ export function ScanButton({ onScan, disabled = false }: ScanButtonProps) {
       {is_active ? (
         <ActivityIndicator color="#fff" />
       ) : (
-        <Text style={styles.label}>Scan room</Text>
+        <Text style={styles.label}>Start scan</Text>
       )}
     </Pressable>
   );
@@ -37,22 +37,32 @@ export function ScanButton({ onScan, disabled = false }: ScanButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+    backgroundColor: '#22c55e',
     paddingVertical: 14,
     paddingHorizontal: 28,
-    borderRadius: 12,
-    minWidth: 100,
+    borderRadius: 14,
+    minWidth: 120,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.4)',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   buttonActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    backgroundColor: '#ef4444',
+    borderColor: 'rgba(248,113,113,0.5)',
+    shadowColor: '#ef4444',
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.55,
   },
   label: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

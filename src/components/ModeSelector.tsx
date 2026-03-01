@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useStore } from '../state/store';
-import { DISASTER_MODES, MVP_MODES } from '../constants/disasterModes';
+import { DISASTER_MODES, ALL_MODES } from '../constants/disasterModes';
 import type { DisasterMode } from '../types';
 
 export function ModeSelector() {
   const active = useStore((s) => s.active);
   const setMode = useStore((s) => s.setMode);
-  const modes = MVP_MODES; // Hackathon: 3 modes only
 
   return (
     <ScrollView
@@ -15,15 +14,16 @@ export function ModeSelector() {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {modes.map((mode) => {
+      {ALL_MODES.map((mode) => {
         const config = DISASTER_MODES[mode];
         const isActive = active === mode;
         return (
           <Pressable
             key={mode}
             style={[styles.pill, isActive && styles.pillActive]}
-            onPress={() => setMode(mode)}
+            onPress={() => setMode(mode as DisasterMode)}
           >
+            <Text style={styles.pillEmoji}>{config.emoji}</Text>
             <Text style={[styles.pillText, isActive && styles.pillTextActive]}>
               {config.shortLabel}
             </Text>
@@ -38,24 +38,33 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 16,
   },
   pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   pillActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+    backgroundColor: 'rgba(34,197,94,0.22)',
+    borderColor: '#22c55e',
+  },
+  pillEmoji: {
+    fontSize: 14,
   },
   pillText: {
-    color: '#fff',
-    fontSize: 14,
+    color: 'rgba(241,245,249,0.75)',
+    fontSize: 13,
     fontWeight: '600',
   },
   pillTextActive: {
-    color: '#fff',
+    color: '#4ade80',
   },
 });
