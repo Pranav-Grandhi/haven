@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions, Linking, Platform, Pressable } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
+import { THEME } from '../constants/colors';
 import type { SafetyZone, ExitRoute } from '../types';
+
+/** Open the device maps app to search for nearby emergency shelters. */
+function getShelterMapsUrl(): string {
+  const query = encodeURIComponent('emergency shelter');
+  if (Platform.OS === 'ios') {
+    return `https://maps.apple.com/?q=${query}`;
+  }
+  return `https://www.google.com/maps/search/${query}`;
+}
 
 // ─── Overlay helpers ─────────────────────────────────────────────────────────
 
@@ -188,22 +198,22 @@ const bannerStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   object: {
-    color: '#fff',
+    color: '#f1f5f9',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
     textTransform: 'capitalize',
   },
   reason: {
-    color: 'rgba(255,255,255,0.82)',
+    color: 'rgba(226,232,240,0.9)',
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   action: {
-    color: '#22c55e',
+    color: '#34d399',
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 8,
   },
 });
 
@@ -251,11 +261,11 @@ const exitStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    gap: 10,
+    marginBottom: 10,
+    gap: 12,
   },
   number: {
-    color: '#3b82f6',
+    color: '#60a5fa',
     fontSize: 14,
     fontWeight: '800',
     width: 20,
@@ -263,18 +273,18 @@ const exitStyles = StyleSheet.create({
   },
   info: { flex: 1 },
   label: {
-    color: '#fff',
+    color: '#f1f5f9',
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   note: {
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(148,163,184,0.95)',
     fontSize: 12,
     marginTop: 2,
   },
   blocked: {
-    color: '#ef4444',
+    color: '#f87171',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
@@ -366,15 +376,20 @@ export function ResultPhotoView() {
       : 'Move to an interior area away from windows.');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Prominent "safest" answer at top — visible without scrolling */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={true}
+      bounces={true}
+    >
+      {/* Prominent "safest" answer at top */}
       <View style={heroStyles.hero}>
         <Text style={heroStyles.heroLabel}>Safest place to hide</Text>
-        <Text style={heroStyles.heroAnswer} numberOfLines={3}>
+        <Text style={heroStyles.heroAnswer}>
           {safestOneLiner}
         </Text>
         {room_summary?.safest && room_summary.safest !== safestOneLiner && (
-          <Text style={heroStyles.heroAction} numberOfLines={2}>
+          <Text style={heroStyles.heroAction}>
             {room_summary.safest}
           </Text>
         )}
@@ -408,6 +423,23 @@ export function ResultPhotoView() {
 
       {/* Exit routes */}
       <ExitRoutesPanel routes={exitRoutes} />
+
+      {/* Find nearest shelter — when evacuating is the best option */}
+      {current?.recommend_evacuate && (
+        <View style={shelterStyles.container}>
+          <Text style={shelterStyles.title}>Better to go outside</Text>
+          <Text style={shelterStyles.subtitle}>
+            Open maps to find the nearest safe shelter and get directions.
+          </Text>
+          <Pressable
+            style={shelterStyles.button}
+            onPress={() => Linking.openURL(getShelterMapsUrl())}
+          >
+            <Text style={shelterStyles.buttonLabel}>Find nearest shelter</Text>
+            <Text style={shelterStyles.buttonHint}>Opens in Maps</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Danger summary */}
       <DangerSummary zones={zones} />
@@ -457,18 +489,63 @@ const heroStyles = StyleSheet.create({
     color: 'rgba(226,232,240,0.92)',
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 10,
+    lineHeight: 21,
+  },
+});
+
+const shelterStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 18,
+    backgroundColor: THEME.exitBg,
+    borderWidth: 1.5,
+    borderColor: THEME.exit,
+    borderRadius: THEME.radiusCard,
+  },
+  title: {
+    color: THEME.exit,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: THEME.text,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  button: {
+    backgroundColor: THEME.exit,
+    borderRadius: THEME.radiusCard,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+  },
+  buttonLabel: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  buttonHint: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: '#0f0f1a',
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: 36,
   },
   title: {
     color: 'rgba(241,245,249,0.85)',
@@ -515,9 +592,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   summaryWrap: {
-    marginTop: 12,
+    marginTop: 14,
   },
   bottomPad: {
-    height: 16,
+    height: 20,
   },
 });

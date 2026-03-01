@@ -23,6 +23,10 @@ const DANGER_LABELS: Record<DisasterMode, string[]> = {
   blast: ['mirror', 'glass', 'window', 'exterior'],
   fire: ['blocked', 'single exit', 'interior room'],
   hazmat: ['vent', 'hvac', 'intake', 'window', 'outlet'],
+  hurricane: ['window', 'glass', 'garage', 'exterior', 'door'],
+  nuclear: ['window', 'roof', 'exterior', 'vent', 'door'],
+  lockdown: ['window', 'hallway', 'open', 'exterior', 'glass'],
+  winter: ['exterior', 'window', 'door', 'wet', 'outside'],
 };
 
 // Safe / hide-under keywords per mode (more specific first)
@@ -33,6 +37,10 @@ const SAFE_LABELS: Record<DisasterMode, string[]> = {
   blast: ['column', 'behind', 'desk', 'table', 'couch', 'sofa', 'bed', 'interior', 'wall'],
   fire: ['egress', 'exit sign', 'stair', 'staircase', 'door'],
   hazmat: ['seal', 'bathroom', 'interior', 'room', 'closet'],
+  hurricane: ['bathroom', 'bathtub', 'closet', 'hallway', 'interior', 'basement'],
+  nuclear: ['basement', 'interior', 'concrete', 'wall', 'room'],
+  lockdown: ['desk', 'table', 'wall', 'closet', 'interior', 'barricade'],
+  winter: ['blanket', 'interior', 'insulation', 'couch', 'sofa', 'bed', 'room'],
 };
 
 // Exit-route labels (objects that ARE or indicate an exit)
@@ -83,6 +91,34 @@ const DANGER_REASONS: Record<DisasterMode, Record<string, string>> = {
     intake: 'Air intakes can pull in hazardous material. Avoid intake vents and unfiltered outside air.',
     window: 'Windows may not seal tightly. Prefer interior rooms with fewer openings to the outside.',
     outlet: 'Electrical outlets can be an ingress point for contaminated air. Seal if advised.',
+  },
+  hurricane: {
+    window: 'Hurricane winds and debris can shatter windows. Stay away; go to an interior room.',
+    glass: 'Glass can become high-speed projectiles in hurricane-force winds. Avoid all glass surfaces.',
+    garage: 'Garage doors can blow in under high wind pressure. Do not shelter near or in a garage.',
+    exterior: 'Exterior walls face the brunt of wind and debris. Move to an interior room or hallway.',
+    door: 'Exterior doors can be blown in. Stay away and brace or barricade exterior doors.',
+  },
+  nuclear: {
+    window: 'Windows offer no radiation protection. Stay away from all exterior windows.',
+    roof: 'Roof and upper floors have minimal shielding from fallout. Descend to the basement or a lower floor.',
+    exterior: 'Exterior walls and windows reduce shielding. Stay in the center of the building.',
+    vent: 'Vents and air intakes can draw in radioactive particles. Seal all vents immediately.',
+    door: 'Exterior doors can allow radioactive dust inside. Seal gaps with tape and wet towels.',
+  },
+  lockdown: {
+    window: 'Windows visible from outside expose you. Duck below window sills immediately.',
+    hallway: 'Open hallways provide no cover and limit escape options. Find a lockable room.',
+    open: 'Open areas leave you exposed with no cover. Find a solid interior room immediately.',
+    exterior: 'Exterior walls have windows and entry points. Stay in interior rooms away from exterior walls.',
+    glass: 'Glass walls or doors expose your position. Get behind solid cover.',
+  },
+  winter: {
+    exterior: 'Exterior areas expose you to wind chill and frostbite. Stay inside and away from exterior walls.',
+    window: 'Windows leak heat rapidly. Keep curtains closed and stay away from drafty windows.',
+    door: 'Exterior doors let in cold air. Keep doors closed; place towels at the bottom to stop drafts.',
+    wet: 'Wet clothing causes rapid heat loss and hypothermia. Remove and replace wet items immediately.',
+    outside: 'Going outside in a winter storm risks frostbite and hypothermia. Stay indoors.',
   },
 };
 
@@ -143,6 +179,38 @@ const SAFE_REASONS: Record<DisasterMode, Record<string, string>> = {
     seal: 'Sealed rooms reduce outside air. Close windows and doors; seal gaps if instructed.',
     room: 'A small interior room with minimal openings is easier to seal. Stay there until advised.',
     closet: 'An interior closet with no exterior vents can be quickly sealed. Use tape and towels on gaps.',
+  },
+  hurricane: {
+    bathroom: 'Small interior bathrooms have no exterior windows. Get inside and close the door.',
+    bathtub: 'A bathtub in an interior bathroom offers extra protection against flying debris. Get in.',
+    closet: 'An interior closet has no windows and strong walls. Get inside and close the door.',
+    hallway: 'An interior hallway on the lowest floor keeps you away from windows. Stay low.',
+    interior: 'Interior rooms without windows are the safest from hurricane winds and debris.',
+    basement: 'A basement provides strong protection from hurricane winds. Go to the lowest level.',
+  },
+  nuclear: {
+    basement: 'Basements offer the best radiation shielding — concrete and soil absorb fallout particles.',
+    interior: 'Interior rooms away from exterior walls and windows provide better radiation protection.',
+    concrete: 'Concrete and brick walls absorb radiation. Stay near the center of solid structures.',
+    wall: 'Interior walls provide shielding from radiation. Put as many walls between you and outside as possible.',
+    room: 'A sealed interior room slows radioactive dust from entering. Stay put until authorities clear the area.',
+  },
+  lockdown: {
+    desk: 'A heavy desk can provide cover and concealment. Get under or behind it and stay low.',
+    table: 'A solid table can shield you. Get underneath and pull chairs around you.',
+    wall: 'Solid interior walls provide cover. Stay low against an interior wall away from the door.',
+    closet: 'A locked interior closet hides you and provides some cover. Barricade the door.',
+    interior: 'Interior rooms with lockable doors are safest. Barricade, silence all devices, stay low.',
+    barricade: 'Barricading the door with heavy furniture slows entry. Use desks, cabinets, or bookshelves.',
+  },
+  winter: {
+    blanket: 'Blankets trap body heat. Layer multiple blankets and cover your head.',
+    interior: 'Interior rooms away from exterior walls retain heat better. Stay in the center of the building.',
+    insulation: 'Insulated areas retain warmth. Use curtains, rugs, and stuffed towels to reduce drafts.',
+    couch: 'A couch or sofa can be used as a windbreak and insulation layer. Wrap yourself in cushions.',
+    sofa: 'A sofa provides insulation from cold floors. Sit on it and wrap yourself in blankets.',
+    bed: 'A bed with multiple layers of blankets is one of the warmest shelter spots. Stay in bed.',
+    room: 'A small interior room is easier to keep warm than a large open space. Close all doors.',
   },
 };
 

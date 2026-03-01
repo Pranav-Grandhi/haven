@@ -19,13 +19,13 @@ export function RoomSummaryCard() {
           <Text style={styles.bodyText}>{room_summary.safest}</Text>
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>✓ What to do</Text>
+          <Text style={styles.sectionTitle}>What to do</Text>
           {room_summary.whatToDo.map((line, i) => (
             <Text key={i} style={styles.bullet}>• {line}</Text>
           ))}
         </View>
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, styles.dangerTitle]}>✗ What to avoid</Text>
+          <Text style={[styles.sectionTitle, styles.dangerTitle]}>What to avoid</Text>
           {room_summary.whatToAvoid.map((line, i) => (
             <Text key={i} style={styles.bullet}>• {line}</Text>
           ))}
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   section: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     color: 'rgba(241,245,249,0.9)',
@@ -75,12 +75,12 @@ const styles = StyleSheet.create({
   bodyText: {
     color: 'rgba(226,232,240,0.92)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   bullet: {
     color: 'rgba(226,232,240,0.88)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 21,
     marginLeft: 4,
   },
 });

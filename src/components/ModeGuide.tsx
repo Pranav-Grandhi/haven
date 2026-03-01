@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   section: {
-    gap: 4,
+    gap: 6,
   },
   sectionTitle: {
     color: 'rgba(241,245,249,0.9)',

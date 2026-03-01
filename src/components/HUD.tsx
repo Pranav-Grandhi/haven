@@ -34,7 +34,7 @@ export function HUD() {
       )}
       {is_active && (
         <View style={styles.scanning}>
-          <Text style={styles.scanningText}>Scanning...</Text>
+          <Text style={styles.scanningText}>Scanning…</Text>
         </View>
       )}
     </View>

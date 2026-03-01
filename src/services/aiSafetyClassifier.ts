@@ -67,6 +67,26 @@ EXIT: door (feel for heat before opening), staircase (never elevator), exit sign
 DANGER: air vents, HVAC grilles, windows that don't seal tightly, electrical outlet gaps.
 SAFE: interior room with fewest openings — bathroom is ideal (seal door gap with wet towels, seal vents with tape).
 EXIT: only if ordered to evacuate; use sealed interior doors to limit exposure.`,
+
+  hurricane: `SHELTER AWAY FROM WINDOWS — INTERIOR LOWEST FLOOR.
+DANGER: windows (flying debris + pressure), glass doors, garage doors (blow in easily), exterior walls.
+SAFE: interior bathroom or closet on the lowest floor (no exterior walls), bathtub (extra mass), hallway center.
+EXIT: interior door to a small room — close it. Do not go outside until storm has fully passed.`,
+
+  nuclear: `SHELTER IN PLACE — GET INSIDE, STAY INSIDE, STAY TUNED.
+DANGER: windows and doors to outside (fallout entry), roof or top floors (highest radiation), outdoor air.
+SAFE: basement or center of a multi-story building (concrete/brick walls absorb radiation best), interior room on middle floors.
+EXIT: do not go outside unless directed by authorities. Seal all gaps if sheltering in place.`,
+
+  lockdown: `HIDE — SILENCE — BARRICADE.
+DANGER: windows visible from outside (duck below sill), doors without locks, open hallways, any area with no cover.
+SAFE: locked interior room with solid door (barricade with furniture), low to the floor behind heavy furniture.
+EXIT: only if you can reach an exit without being seen — stay low, run in a zigzag if outside.`,
+
+  winter: `STAY WARM — CONSERVE HEAT — AVOID FROSTBITE.
+DANGER: exterior doors and windows (heat loss), wet clothing, unventilated rooms with improvised heaters (CO poisoning), going outside unnecessarily.
+SAFE: interior rooms away from exterior walls, under multiple layers of blankets, near a safe heat source.
+EXIT: if pipes burst or structural damage, move to an interior room or seek a warming shelter.`,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
