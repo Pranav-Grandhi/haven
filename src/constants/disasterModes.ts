@@ -160,23 +160,6 @@ export const MODE_SAFE_COVER_OUTDOOR: Record<DisasterMode, string[]> = {
   winter: ['Heated shelter', 'Vehicle if stranded (engine off, window cracked)', 'Out of wind'],
 };
 
-/**
- * Map search query for "find nearest safe shelter" when evacuating.
- * Used to open Apple/Google Maps with a mode-appropriate search.
- */
-export const EVACUATION_MAP_QUERY: Record<DisasterMode, string> = {
-  earthquake: 'emergency assembly point',
-  flood: 'evacuation center',
-  tornado: 'storm shelter',
-  hurricane: 'emergency shelter',
-  blast: 'emergency shelter',
-  fire: 'emergency shelter',
-  hazmat: 'emergency shelter',
-  nuclear: 'emergency shelter',
-  lockdown: 'emergency shelter',
-  winter: 'warming shelter',
-};
-
 export const ALL_MODES: DisasterMode[] = [
   'earthquake', 'flood', 'tornado', 'hurricane',
   'fire', 'blast', 'hazmat', 'nuclear', 'lockdown', 'winter',

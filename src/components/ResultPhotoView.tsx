@@ -1,11 +1,9 @@
-import * as Location from 'expo-location';
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions, Linking, Pressable } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
 import { THEME } from '../constants/colors';
-import { getEvacuationMapsUrl } from '../utils/evacuationMaps';
-import type { DisasterMode, SafetyZone, ExitRoute } from '../types';
+import type { SafetyZone, ExitRoute } from '../types';
 
 // ─── Overlay helpers ─────────────────────────────────────────────────────────
 
@@ -417,38 +415,6 @@ export function ResultPhotoView() {
       {/* Exit routes */}
       <ExitRoutesPanel routes={exitRoutes} />
 
-      {/* Map to nearest safe shelter — when evacuating is the best option */}
-      {current?.recommend_evacuate && (
-        <View style={shelterStyles.container}>
-          <Text style={shelterStyles.title}>Better to go outside</Text>
-          <Text style={shelterStyles.subtitle}>
-            Open Maps to find the nearest safe shelter and get directions.
-          </Text>
-          <Pressable
-            style={shelterStyles.button}
-            onPress={async () => {
-              const mode: DisasterMode = current?.mode ?? 'fire';
-              try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') {
-                  Linking.openURL(getEvacuationMapsUrl(mode));
-                  return;
-                }
-                const loc = await Location.getCurrentPositionAsync({
-                  accuracy: Location.Accuracy.Balanced,
-                });
-                Linking.openURL(getEvacuationMapsUrl(mode, loc.coords));
-              } catch {
-                Linking.openURL(getEvacuationMapsUrl(mode));
-              }
-            }}
-          >
-            <Text style={shelterStyles.buttonLabel}>Map to nearest safe shelter</Text>
-            <Text style={shelterStyles.buttonHint}>Opens in Maps</Text>
-          </Pressable>
-        </View>
-      )}
-
       {/* Danger summary */}
       <DangerSummary zones={zones} />
 
@@ -499,50 +465,6 @@ const heroStyles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 10,
     lineHeight: 21,
-  },
-});
-
-const shelterStyles = StyleSheet.create({
-  container: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 18,
-    backgroundColor: THEME.exitBg,
-    borderWidth: 1.5,
-    borderColor: THEME.exit,
-    borderRadius: THEME.radiusCard,
-  },
-  title: {
-    color: THEME.exit,
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: THEME.text,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 22,
-    marginBottom: 14,
-  },
-  button: {
-    backgroundColor: THEME.exit,
-    borderRadius: THEME.radiusCard,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  buttonHint: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12,
-    marginTop: 4,
   },
 });
 

@@ -289,7 +289,7 @@ export default function HavenScreen() {
           <View style={styles.phaseOverlay}>
             <Text style={styles.scanTitle}>Scanning</Text>
             <Text style={styles.scanHint}>Move your phone slowly to capture the space. Tap I'm done when finished.</Text>
-            <Text style={styles.frameCount}>{frameCount} photos · {scanProgressDeg}°</Text>
+            <Text style={styles.scanningLabel}>Scanning…</Text>
             <Pressable style={styles.doneButton} onPress={handleDoneScanning}>
               <Text style={styles.doneLabel}>I'm done</Text>
             </Pressable>
@@ -494,16 +494,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     textAlign: 'center',
   },
-  frameCount: {
+  scanningLabel: {
     color: 'rgba(148,163,184,0.95)',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    overflow: 'hidden',
   },
   doneButton: {
     marginTop: 16,
