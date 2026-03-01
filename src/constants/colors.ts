@@ -1,5 +1,5 @@
 /**
- * ShelterScan overlay and zone colors (from spec).
+ * Haven overlay and zone colors (from spec).
  * Theme: deep background, soft surfaces, clear safe/danger/exit accents.
  */
 

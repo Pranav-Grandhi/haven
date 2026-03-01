@@ -14,9 +14,9 @@ export default function HowToUseScreen() {
 
   return (
     <ScrollView style={[styles.container, isDark && styles.containerDark]} contentContainerStyle={styles.content}>
-      <Text style={[styles.title, { color: textColor }]}>How to use ShelterScan</Text>
+      <Text style={[styles.title, { color: textColor }]}>How to use Haven</Text>
       <Text style={[styles.intro, { color: muted }]}>
-        ShelterScan helps you find the safest spots in a room for different emergencies.
+        Haven helps you find the safest spots in a room for different emergencies.
       </Text>
 
       <View style={[styles.stepCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>

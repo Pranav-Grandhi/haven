@@ -49,16 +49,20 @@ interface Use360Options {
 
 export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
   const cancelRef = useRef<(() => void) | null>(null);
+  /** Frames collected so far; cancel() resolves the start() promise with these. */
+  const framesCollectorRef = useRef<ScanFrame[]>([]);
+  const resolveRef = useRef<((frames: ScanFrame[]) => void) | null>(null);
 
   const captureOne = useCallback(
     async (index: number): Promise<ScanFrame | null> => {
-      const photo = await cameraRef.current?.takePictureAsync?.();
+      const photo = await cameraRef.current?.takePictureAsync?.({ quality: 0.8, base64: true });
       if (!photo?.uri) return null;
       const frame: ScanFrame = {
         frame_id: `frame_${Date.now()}_${index}`,
         uri: photo.uri,
         width: photo.width,
         height: photo.height,
+        base64: photo.base64 ?? undefined,
       };
       onFrame(frame, index);
       return frame;
@@ -67,7 +71,7 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
   );
 
   /**
-   * Gyroscope path: resolves when the user has physically rotated 360°.
+   * Gyroscope path: resolves when the user has physically rotated 360° or when cancel() is called.
    * Captures one frame every CAPTURE_EVERY_DEG degrees of real rotation.
    */
   const startGyroscope = useCallback(
@@ -80,7 +84,9 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
         return;
       }
 
-      const frames: ScanFrame[] = [];
+      framesCollectorRef.current = [];
+      resolveRef.current = resolve;
+      const frames = framesCollectorRef.current;
       let cumDeg = 0;
       let lastCaptureDeg = 0;
       let lastTime = 0;
@@ -132,14 +138,17 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
           done = true;
           sub.remove();
           onProgress(TOTAL_DEG);
-          resolve(frames);
+          resolveRef.current?.([...frames]);
+          resolveRef.current = null;
         }
       });
 
       cancelRef.current = () => {
+        if (done) return;
         done = true;
         sub.remove();
-        reject(new Error('cancelled'));
+        resolveRef.current?.([...frames]);
+        resolveRef.current = null;
       };
     },
     [captureOne, onProgress]
@@ -148,10 +157,13 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
   /**
    * Fallback for web / simulator: time-based capture at fixed intervals,
    * with progress reported as if rotating at a steady rate.
+   * cancel() resolves with frames collected so far.
    */
   const startFallback = useCallback(
-    (resolve: (frames: ScanFrame[]) => void, reject: (e: Error) => void) => {
-      const frames: ScanFrame[] = [];
+    (resolve: (frames: ScanFrame[]) => void, _reject: (e: Error) => void) => {
+      framesCollectorRef.current = [];
+      resolveRef.current = resolve;
+      const frames = framesCollectorRef.current;
       let index = 0;
       let cancelled = false;
       const degPerFrame = TOTAL_DEG / FALLBACK_FRAMES;
@@ -160,7 +172,8 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
         if (cancelled) return;
         if (index >= FALLBACK_FRAMES) {
           onProgress(TOTAL_DEG);
-          resolve(frames);
+          resolveRef.current?.([...frames]);
+          resolveRef.current = null;
           return;
         }
         const f = await captureOne(index++);
@@ -171,7 +184,8 @@ export function use360Scan({ cameraRef, onProgress, onFrame }: Use360Options) {
 
       cancelRef.current = () => {
         cancelled = true;
-        reject(new Error('cancelled'));
+        resolveRef.current?.([...frames]);
+        resolveRef.current = null;
       };
 
       tick();

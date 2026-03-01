@@ -1,18 +1,11 @@
+import * as Location from 'expo-location';
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions, Linking, Platform, Pressable } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, useWindowDimensions, Linking, Pressable } from 'react-native';
 import { useStore } from '../state/store';
 import { RoomSummaryCard } from './RoomSummaryCard';
 import { THEME } from '../constants/colors';
-import type { SafetyZone, ExitRoute } from '../types';
-
-/** Open the device maps app to search for nearby emergency shelters. */
-function getShelterMapsUrl(): string {
-  const query = encodeURIComponent('emergency shelter');
-  if (Platform.OS === 'ios') {
-    return `https://maps.apple.com/?q=${query}`;
-  }
-  return `https://www.google.com/maps/search/${query}`;
-}
+import { getEvacuationMapsUrl } from '../utils/evacuationMaps';
+import type { DisasterMode, SafetyZone, ExitRoute } from '../types';
 
 // ─── Overlay helpers ─────────────────────────────────────────────────────────
 
@@ -424,18 +417,33 @@ export function ResultPhotoView() {
       {/* Exit routes */}
       <ExitRoutesPanel routes={exitRoutes} />
 
-      {/* Find nearest shelter — when evacuating is the best option */}
+      {/* Map to nearest safe shelter — when evacuating is the best option */}
       {current?.recommend_evacuate && (
         <View style={shelterStyles.container}>
           <Text style={shelterStyles.title}>Better to go outside</Text>
           <Text style={shelterStyles.subtitle}>
-            Open maps to find the nearest safe shelter and get directions.
+            Open Maps to find the nearest safe shelter and get directions.
           </Text>
           <Pressable
             style={shelterStyles.button}
-            onPress={() => Linking.openURL(getShelterMapsUrl())}
+            onPress={async () => {
+              const mode: DisasterMode = current?.mode ?? 'fire';
+              try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                  Linking.openURL(getEvacuationMapsUrl(mode));
+                  return;
+                }
+                const loc = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                });
+                Linking.openURL(getEvacuationMapsUrl(mode, loc.coords));
+              } catch {
+                Linking.openURL(getEvacuationMapsUrl(mode));
+              }
+            }}
           >
-            <Text style={shelterStyles.buttonLabel}>Find nearest shelter</Text>
+            <Text style={shelterStyles.buttonLabel}>Map to nearest safe shelter</Text>
             <Text style={shelterStyles.buttonHint}>Opens in Maps</Text>
           </Pressable>
         </View>

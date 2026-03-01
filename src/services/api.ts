@@ -2,7 +2,7 @@
  * API client utilities and base URL config.
  */
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.shelterscan.example';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.haven.example';
 
 export interface ApiError {
   code: string;

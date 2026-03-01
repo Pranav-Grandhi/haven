@@ -1,26 +1,19 @@
 import React, { useRef, useCallback, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
-import { HUD } from '@/src/components/HUD';
-import { OverlayCanvas } from '@/src/components/OverlayCanvas';
-import { IdentifiedList } from '@/src/components/IdentifiedList';
-import { DetailCard } from '@/src/components/DetailCard';
-import { ControlBar } from '@/src/components/ControlBar';
-import { ModeGuide } from '@/src/components/ModeGuide';
-import { RoomSummaryCard } from '@/src/components/RoomSummaryCard';
 import { ResultPhotoView } from '@/src/components/ResultPhotoView';
 import { CameraPlaceholder, type CameraCaptureRef } from '@/src/components/CameraPlaceholder';
-import { useZoneTracking } from '@/src/hooks/useZoneTracking';
 import { useStore } from '@/src/state/store';
 import { useSpeechSynthesis } from '@/src/hooks/useSpeechSynthesis';
+import { use360Scan } from '@/src/hooks/use360Scan';
 import { analyzeRoomWithLLM } from '@/src/services/llmAnalysis';
 import { computeRoomSummary } from '@/src/utils/roomSummary';
+import { ALL_MODES, DISASTER_MODES } from '@/src/constants/disasterModes';
 import type { DisasterMode } from '@/src/types';
 import type { ScanFrame } from '@/src/hooks/use360Scan';
 
-/** Capture a frame every N milliseconds while scanning. */
-const CAPTURE_INTERVAL_MS = 800;
+type FlowScreen = 'context' | 'select' | 'camera' | 'result';
 
-export default function ShelterScanScreen() {
+export default function HavenScreen() {
   const { width, height } = useWindowDimensions();
   const feedHeight = height * 0.55;
   const cameraRef = useRef<CameraCaptureRef>(null);
@@ -30,130 +23,142 @@ export default function ShelterScanScreen() {
   const active = useStore((s) => s.active);
   const scan_context = useStore((s) => s.scan_context);
   const setScanContext = useStore((s) => s.setScanContext);
+  const setMode = useStore((s) => s.setMode);
   const scan_phase = useStore((s) => s.scan_phase);
   const setScanPhase = useStore((s) => s.setScanPhase);
   const setResultFromBurst = useStore((s) => s.setResultFromBurst);
   const setRoomSummary = useStore((s) => s.setRoomSummary);
   const current = useStore((s) => s.current);
   const history = useStore((s) => s.history);
-  const { identifiedSummary } = useZoneTracking();
 
+  const [flowScreen, setFlowScreen] = useState<FlowScreen>('context');
   const [frameCount, setFrameCount] = useState(0);
-  /** Shown on screen when analysis fails so user sees why there's no result. */
+  const [scanProgressDeg, setScanProgressDeg] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  /** Accumulated frames during the free-form scan. */
-  const framesRef = useRef<ScanFrame[]>([]);
-  /** setInterval handle — kept in a ref so handleDone can clear it. */
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanInProgress = useRef(false);
-  /** When user taps Cancel during processing, skip applying the result. */
   const cancelledRef = useRef(false);
+  const scanPromiseRef = useRef<Promise<ScanFrame[]> | null>(null);
 
-  // ── Start free-form scan ──────────────────────────────────────────────────
-  const handleScanRoom = useCallback(async () => {
-    if (!active || scanInProgress.current) return;
-    scanInProgress.current = true;
-    clearAnalysis();
-    framesRef.current = [];
-    setFrameCount(0);
-    setScanPhase('capturing');
+  const { start: startGyroScan, cancel: cancelGyroScan } = use360Scan({
+    cameraRef: cameraRef as React.RefObject<CameraCaptureRef>,
+    onProgress: (deg) => setScanProgressDeg(Math.round(deg)),
+    onFrame: (_, index) => setFrameCount(index + 1),
+  });
 
-    let frameIndex = 0;
-    intervalRef.current = setInterval(async () => {
-      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.8, base64: true });
-      if (!photo) return;
-      const frame: ScanFrame = {
-        uri: photo.uri,
-        frame_id: `frame_${frameIndex++}`,
-        width: photo.width,
-        height: photo.height,
-        base64: photo.base64 ?? undefined,
-      };
-      framesRef.current = [...framesRef.current, frame];
-      setFrameCount(framesRef.current.length);
-    }, CAPTURE_INTERVAL_MS);
-  }, [active, clearAnalysis, setScanPhase]);
-
-  // ── User taps "Done" ──────────────────────────────────────────────────────
-  const handleDoneScanning = useCallback(async () => {
-    setScanError(null);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    const frames = framesRef.current;
-
-    if (frames.length === 0) {
-      speak('No photos captured. Please try again.');
-      setScanPhase('idle');
-      scanInProgress.current = false;
-      return;
-    }
-
-    const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
-    const hasValidKey = apiKey.length > 0 && apiKey !== 'your-openai-key-here';
-    if (!hasValidKey) {
-      const msg = 'To analyze your room, add your OpenAI API key. See the How to use tab for setup.';
-      setScanError(msg);
-      speak('Room analysis needs an API key. Check the How to use tab for setup.');
-      setScanPhase('idle');
-      scanInProgress.current = false;
-      return;
-    }
-
-    setScanPhase('processing');
-    cancelledRef.current = false;
-
-    try {
-      const result = await analyzeRoomWithLLM(frames, active as DisasterMode, scan_context);
-
-      if (cancelledRef.current) return;
-      if (!result.ok) {
-        setScanError(result.error);
-        speak('Analysis failed. Please try again.');
+  // ── Run analysis on captured frames ─────────────────────────────────────
+  const runAnalysis = useCallback(
+    async (frames: ScanFrame[]) => {
+      if (frames.length === 0) {
+        speak('No photos captured. Please try again.');
         setScanPhase('idle');
         scanInProgress.current = false;
         return;
       }
 
-      const { analysis, resultPhotoUri } = result;
-      const summary =
-        computeRoomSummary(analysis, []) ?? {
-          safest: analysis.actions?.[0]?.instruction ?? 'Move to the safest marked area.',
-          whatToDo: (analysis.actions ?? [])
-            .slice(0, 3)
-            .map((a) => a.instruction)
-            .filter((s): s is string => typeof s === 'string' && s.length > 0),
-          whatToAvoid: (analysis.risks_summary?.descriptions ?? []).slice(0, 3),
-        };
+      const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
+      const hasValidKey = apiKey.length > 0 && apiKey !== 'your-openai-key-here';
+      if (!hasValidKey) {
+        const msg = 'To analyze your room, add your OpenAI API key. See the How to use tab for setup.';
+        setScanError(msg);
+        speak('Room analysis needs an API key. Check the How to use tab for setup.');
+        setScanPhase('idle');
+        scanInProgress.current = false;
+        return;
+      }
 
-      setResultFromBurst(analysis, [], summary, resultPhotoUri);
-      speak(analysis.voice_response);
+      setScanPhase('processing');
+      cancelledRef.current = false;
+
+      try {
+        const result = await analyzeRoomWithLLM(frames, active as DisasterMode, scan_context);
+        if (cancelledRef.current) return;
+        if (!result.ok) {
+          setScanError(result.error);
+          speak('Analysis failed. Please try again.');
+          setScanPhase('idle');
+          scanInProgress.current = false;
+          return;
+        }
+
+        const { analysis, resultPhotoUri } = result;
+        const summary =
+          computeRoomSummary(analysis, []) ?? {
+            safest: analysis.actions?.[0]?.instruction ?? 'Move to the safest marked area.',
+            whatToDo: (analysis.actions ?? [])
+              .slice(0, 3)
+              .map((a) => a.instruction)
+              .filter((s): s is string => typeof s === 'string' && s.length > 0),
+            whatToAvoid: (analysis.risks_summary?.descriptions ?? []).slice(0, 3),
+          };
+
+        setResultFromBurst(analysis, [], summary, resultPhotoUri);
+        speak(analysis.voice_response);
+        scanInProgress.current = false;
+        setFlowScreen('result');
+      } catch (e) {
+        if (cancelledRef.current) return;
+        const msg = 'Something went wrong. Check your internet connection and try again.';
+        setScanError(msg);
+        speak(msg);
+        setScanPhase('idle');
+        scanInProgress.current = false;
+      }
+    },
+    [active, scan_context, setScanPhase, setResultFromBurst, speak]
+  );
+
+  // ── Start gyro scan ──────────────────────────────────────────────────────
+  const handleScanRoom = useCallback(async () => {
+    if (!active || scanInProgress.current) return;
+    scanInProgress.current = true;
+    setScanError(null);
+    clearAnalysis();
+    setFrameCount(0);
+    setScanProgressDeg(0);
+    setScanPhase('capturing');
+    scanPromiseRef.current = startGyroScan();
+  }, [active, clearAnalysis, setScanPhase, startGyroScan]);
+
+  // ── User taps "I'm done" ──────────────────────────────────────────────────
+  const handleDoneScanning = useCallback(async () => {
+    setScanError(null);
+    cancelGyroScan();
+    const promise = scanPromiseRef.current;
+    scanPromiseRef.current = null;
+    if (!promise) {
+      setScanPhase('idle');
       scanInProgress.current = false;
-    } catch (e) {
-      if (cancelledRef.current) return;
-      const msg = 'Something went wrong. Check your internet connection and try again.';
-      setScanError(msg);
-      speak(msg);
+      return;
+    }
+    try {
+      const frames = await promise;
+      await runAnalysis(frames);
+    } catch {
       setScanPhase('idle');
       scanInProgress.current = false;
     }
-  }, [active, scan_context, setScanPhase, setResultFromBurst, speak]);
+  }, [cancelGyroScan, runAnalysis, setScanPhase]);
 
-  // ── New scan (reset) ──────────────────────────────────────────────────────
+  // ── Back from camera → disaster select ───────────────────────────────────
+  const handleBackFromCamera = useCallback(() => {
+    cancelGyroScan();
+    scanPromiseRef.current = null;
+    setFrameCount(0);
+    setScanProgressDeg(0);
+    setScanPhase('idle');
+    scanInProgress.current = false;
+    setFlowScreen('select');
+  }, [cancelGyroScan, setScanPhase]);
+
+  // ── New scan → back to first step ──────────────────────────────────────────
   const handleNewScan = useCallback(() => {
     setScanError(null);
     cancelledRef.current = true;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    framesRef.current = [];
     clearAnalysis();
     setFrameCount(0);
     scanInProgress.current = false;
+    setFlowScreen('context');
   }, [clearAnalysis]);
 
   const handleCancelAnalysis = useCallback(() => {
@@ -166,92 +171,144 @@ export default function ShelterScanScreen() {
     const summary = computeRoomSummary(current, history);
     if (summary) {
       setRoomSummary(summary);
-      speak(
-        ['Safest: ' + summary.safest, ...summary.whatToDo.slice(0, 2)].join('. ')
-      );
+      speak(['Safest: ' + summary.safest, ...summary.whatToDo.slice(0, 2)].join('. '));
     }
   }, [current, history, setRoomSummary, speak]);
 
-  const showResult = scan_phase === 'result';
+  // ── Screen 1: Inside or Outside ───────────────────────────────────────────
+  if (flowScreen === 'context') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.flowContent}>
+          <Text style={styles.flowTitle}>Is the disaster inside or outside?</Text>
+          <View style={styles.contextChoiceRow}>
+            <Pressable
+              style={[styles.contextChoiceCard, styles.contextChoiceCardLeft]}
+              onPress={() => {
+                setScanContext('indoor');
+                setFlowScreen('select');
+              }}
+            >
+              <Text style={styles.contextChoiceEmoji}>🏠</Text>
+              <Text style={styles.contextChoiceLabel}>Inside</Text>
+              <Text style={styles.contextChoiceHint}>Room or building</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.contextChoiceCard, styles.contextChoiceCardRight]}
+              onPress={() => {
+                setScanContext('outdoor');
+                setFlowScreen('select');
+              }}
+            >
+              <Text style={styles.contextChoiceEmoji}>🌳</Text>
+              <Text style={styles.contextChoiceLabel}>Outside</Text>
+              <Text style={styles.contextChoiceHint}>Street, yard, or open area</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
+  // ── Screen 2: Vertical disaster list ──────────────────────────────────────
+  if (flowScreen === 'select') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.flowContent}>
+          <Text style={styles.flowTitle}>What type of disaster?</Text>
+          <ScrollView style={styles.modeList} contentContainerStyle={styles.modeListInner} showsVerticalScrollIndicator>
+            {ALL_MODES.map((mode) => (
+              <Pressable
+                key={mode}
+                style={styles.modeRow}
+                onPress={() => {
+                  setMode(mode);
+                  setScanPhase('idle');
+                  setFlowScreen('camera');
+                }}
+              >
+                <Text style={styles.modeEmoji}>{DISASTER_MODES[mode].emoji}</Text>
+                <Text style={styles.modeLabel}>{DISASTER_MODES[mode].label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Screen 4: Result ─────────────────────────────────────────────────────
+  if (flowScreen === 'result') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.resultWrap}>
+          <ResultPhotoView />
+        </View>
+        <View style={styles.resultBar}>
+          <Pressable style={styles.newScanButton} onPress={handleNewScan}>
+            <Text style={styles.newScanLabel}>New scan</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Screen 3: Camera with Back, gyro scan, I'm done ───────────────────────
   return (
     <View style={styles.container}>
-      <HUD />
-      {showResult ? (
-        <>
-          <ResultPhotoView />
-          <ControlBar onScan={handleNewScan} onSummarizeRoom={handleSummarizeRoom} scanPhase="result" />
-        </>
-      ) : (
-        <>
-          {scanError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorTitle}>Something went wrong</Text>
-              <Text style={styles.errorText}>{scanError}</Text>
-            </View>
-          ) : null}
-          <View style={[styles.feed, { height: feedHeight }]}>
-            <CameraPlaceholder ref={cameraRef} />
-            <OverlayCanvas layoutWidth={width} layoutHeight={feedHeight} />
+      <View style={styles.cameraTopBar}>
+        <Pressable style={styles.backButton} onPress={handleBackFromCamera}>
+          <Text style={styles.backLabel}>← Back</Text>
+        </Pressable>
+        <Text style={styles.cameraTitle} numberOfLines={1}>
+          {active ? DISASTER_MODES[active].label : 'Scan'}
+        </Text>
+        <View style={styles.backButton} />
+      </View>
 
-            {scan_phase === 'capturing' && (
-              <View style={styles.phaseOverlay}>
-                <Text style={styles.scanTitle}>Scanning your room</Text>
-                <Text style={styles.scanHint}>Move your phone slowly in a circle to capture the space</Text>
-                <Text style={styles.frameCount}>{frameCount} photos captured</Text>
+      {scanError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorText}>{scanError}</Text>
+        </View>
+      ) : null}
 
-                <Pressable style={styles.doneButton} onPress={handleDoneScanning}>
-                  <Text style={styles.doneLabel}>Done</Text>
-                </Pressable>
-              </View>
-            )}
+      <View style={[styles.feed, { height: feedHeight }]}>
+        <CameraPlaceholder ref={cameraRef} />
 
-            {scan_phase === 'processing' && (
-              <View style={styles.processingOverlayWrapper}>
-                <View style={styles.processingCard}>
-                  <ActivityIndicator size="large" color="#34d399" style={{ marginBottom: 12 }} />
-                  <Text style={styles.processingTitle}>Analyzing your room</Text>
-                  <Text style={styles.processingSubtitle}>
-                    Finding safe spots, hazards, and ways out
-                  </Text>
-                  <Pressable style={styles.cancelButton} onPress={handleCancelAnalysis}>
-                    <Text style={styles.cancelLabel}>Cancel</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
+        {scan_phase === 'idle' && (
+          <View style={styles.scanPromptOverlay}>
+            <Text style={styles.scanPromptText}>Tap below to start scanning</Text>
+            <Pressable style={styles.scanRoomButton} onPress={handleScanRoom}>
+              <Text style={styles.scanRoomLabel}>Scan room</Text>
+            </Pressable>
           </View>
+        )}
 
-          <ScrollView style={styles.middleContent} contentContainerStyle={styles.middleContentInner}>
-            <IdentifiedList safe={identifiedSummary.safe} danger={identifiedSummary.danger} />
-            <RoomSummaryCard />
-            <ModeGuide />
-            <View style={styles.contextRow}>
-              <Text style={styles.contextLabel}>Where</Text>
-              <View style={styles.contextPills}>
-                <Pressable
-                  style={[styles.contextPill, scan_context === 'indoor' && styles.contextPillActive]}
-                  onPress={() => setScanContext('indoor')}
-                >
-                  <Text style={[styles.contextPillText, scan_context === 'indoor' && styles.contextPillTextActive]}>
-                    Indoor
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.contextPill, scan_context === 'outdoor' && styles.contextPillActive]}
-                  onPress={() => setScanContext('outdoor')}
-                >
-                  <Text style={[styles.contextPillText, scan_context === 'outdoor' && styles.contextPillTextActive]}>
-                    Outdoor
-                  </Text>
-                </Pressable>
-              </View>
+        {scan_phase === 'capturing' && (
+          <View style={styles.phaseOverlay}>
+            <Text style={styles.scanTitle}>Scanning</Text>
+            <Text style={styles.scanHint}>Move your phone slowly to capture the space. Tap I'm done when finished.</Text>
+            <Text style={styles.frameCount}>{frameCount} photos · {scanProgressDeg}°</Text>
+            <Pressable style={styles.doneButton} onPress={handleDoneScanning}>
+              <Text style={styles.doneLabel}>I'm done</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {scan_phase === 'processing' && (
+          <View style={styles.processingOverlayWrapper}>
+            <View style={styles.processingCard}>
+              <ActivityIndicator size="large" color="#34d399" style={{ marginBottom: 12 }} />
+              <Text style={styles.processingTitle}>Analyzing</Text>
+              <Text style={styles.processingSubtitle}>Finding safe spots, hazards, and ways out</Text>
+              <Pressable style={styles.cancelButton} onPress={handleCancelAnalysis}>
+                <Text style={styles.cancelLabel}>Cancel</Text>
+              </Pressable>
             </View>
-          </ScrollView>
-          <ControlBar onScan={handleScanRoom} onSummarizeRoom={handleSummarizeRoom} scanPhase={scan_phase} />
-        </>
-      )}
-      <DetailCard />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -261,53 +318,159 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f0f1a',
   },
+
+  // ── Flow screens (context, select) ────────────────────────────────────────
+  flowContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 48,
+  },
+  flowTitle: {
+    color: '#f1f5f9',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 28,
+    textAlign: 'center',
+  },
+  contextChoiceRow: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'center',
+  },
+  contextChoiceCard: {
+    flex: 1,
+    maxWidth: 160,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  contextChoiceCardLeft: {},
+  contextChoiceCardRight: {},
+  contextChoiceEmoji: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  contextChoiceLabel: {
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  contextChoiceHint: {
+    color: 'rgba(241,245,249,0.65)',
+    fontSize: 13,
+  },
+  modeList: {
+    flex: 1,
+  },
+  modeListInner: {
+    paddingBottom: 24,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modeEmoji: {
+    fontSize: 28,
+    marginRight: 16,
+  },
+  modeLabel: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+
+  // ── Result screen ─────────────────────────────────────────────────────────
+  resultWrap: {
+    flex: 1,
+    minHeight: 0,
+  },
+  resultBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  newScanButton: {
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59,130,246,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.4)',
+    alignItems: 'center',
+  },
+  newScanLabel: {
+    color: '#93c5fd',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  // ── Camera screen ────────────────────────────────────────────────────────
+  cameraTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  backButton: {
+    minWidth: 72,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  backLabel: {
+    color: '#93c5fd',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cameraTitle: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
   feed: {
     width: '100%',
     overflow: 'hidden',
   },
-  middleContent: {
-    flex: 1,
-  },
-  middleContentInner: {
-    paddingBottom: 4,
-  },
-  contextRow: {
-    flexDirection: 'row',
+  scanPromptOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15,15,26,0.5)',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 12,
-    gap: 12,
+    paddingBottom: 48,
   },
-  contextLabel: {
-    color: 'rgba(241,245,249,0.7)',
-    fontSize: 13,
-    fontWeight: '600',
-    minWidth: 40,
+  scanPromptText: {
+    color: 'rgba(241,245,249,0.8)',
+    fontSize: 15,
+    marginBottom: 16,
   },
-  contextPills: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  contextPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  scanRoomButton: {
+    paddingVertical: 18,
+    paddingHorizontal: 48,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#22c55e',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(52,211,153,0.4)',
   },
-  contextPillActive: {
-    backgroundColor: 'rgba(59,130,246,0.35)',
-    borderColor: 'rgba(96,165,250,0.5)',
-  },
-  contextPillText: {
-    color: 'rgba(241,245,249,0.85)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  contextPillTextActive: {
-    color: '#e0f2fe',
+  scanRoomLabel: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
   },
 
   // ── Capture overlay ────────────────────────────────────────────────────────

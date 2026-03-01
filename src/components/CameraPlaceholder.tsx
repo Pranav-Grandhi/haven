@@ -1,7 +1,7 @@
-import React, { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { CameraView as CameraViewType } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../state/store';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -72,7 +72,7 @@ export const CameraPlaceholder = forwardRef<CameraCaptureRef>(function CameraPla
 
   return (
     <View style={[styles.container, styles.placeholder]}>
-      <Text style={styles.placeholderTitle}>ShelterScan</Text>
+      <Text style={styles.placeholderTitle}>Haven</Text>
       <Text style={styles.placeholderSub}>
         {active
           ? `${scan_context === 'outdoor' ? 'Outdoor' : 'Indoor'} • ${active.replace(/_/g, ' ')} mode`

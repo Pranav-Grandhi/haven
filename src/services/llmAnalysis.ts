@@ -211,6 +211,8 @@ interface LLMResponse {
   overall_score: number;
   primary_action: string;
   voice_summary: string;
+  /** True when the best option is to evacuate and go to a safe shelter outside (e.g. fire, flood). */
+  recommend_evacuate?: boolean;
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -311,7 +313,8 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
   ],
   "overall_score": <integer 0–100, higher = safer>,
   "primary_action": "ONE clear instruction: go to [the specific safest place you named]. 15 words max.",
-  "voice_summary": "Start with the safest place: 'The safest place is [specific location]. [One more short instruction].' 2 short sentences."
+  "voice_summary": "Start with the safest place: 'The safest place is [specific location]. [One more short instruction].' 2 short sentences.",
+  "recommend_evacuate": <boolean: true ONLY when the best option is to leave the building and seek a safe shelter outside — e.g. fire (get out now), flood (get to higher ground/shelter outside), severe immediate threat. false when sheltering in place is better (earthquake, tornado, blast, hazmat, etc.).>
 }`;
 
   const REQUEST_TIMEOUT_MS = 90_000; // 90 seconds for vision + multiple images
@@ -465,12 +468,13 @@ Return ONLY valid JSON — absolutely no markdown, no text outside the object:
           .filter((z) => z.type === 'danger')
           .map((z) => `${z.short_description}: ${z.detailed_reasoning}`),
       },
+      recommend_evacuate: parsed.recommend_evacuate === true,
     };
 
     // Copy result photo to cache so the URI stays valid when showing the result (avoids black screen in Expo Go)
     let resultPhotoUri = resultFrame.uri;
     try {
-      const cachePath = `${cacheDirectory}shelterscan_result.jpg`;
+      const cachePath = `${cacheDirectory}haven_result.jpg`;
       await copyAsync({ from: resultFrame.uri, to: cachePath });
       resultPhotoUri = cachePath;
     } catch {
